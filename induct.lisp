@@ -6800,25 +6800,38 @@
                                 flushed-candidates candidates induct-hint-val
                                 ;cl-set
                                 forcing-round pool-lst)
+                          (cond
+                           ((eq (f-get-global 'raw-proof-format state)
+                                :structured)
 
-                          (induct-msg/continue
-                           pool-lst
-                           forcing-round
-                           clauses ; cl-set
-                           induct-hint-val
-                           (length candidates)
-                           (length flushed-candidates)
-                           (length merged-candidates)
-                           (length unvetoed-candidates)
-                           (length complicated-candidates)
-                           (length high-scoring-candidates)
-                           winning-candidate
-                           (if termifiedp
-                               estimated-size
+; Structured output mode: emit induction scheme as s-expression.
+
+                            (fms "(:INDUCTION :TERM ~x0 :SUBGOAL-COUNT ~x1 :SCHEME ~x2)~%"
+                                 (list (cons #\0 (access candidate
+                                                         winning-candidate
+                                                         :induction-term))
+                                       (cons #\1 (length clauses))
+                                       (cons #\2 clauses))
+                                 (proofs-co state) state nil))
+                           (t
+                            (induct-msg/continue
+                             pool-lst
+                             forcing-round
+                             clauses ; cl-set
+                             induct-hint-val
+                             (length candidates)
+                             (length flushed-candidates)
+                             (length merged-candidates)
+                             (length unvetoed-candidates)
+                             (length complicated-candidates)
+                             (length high-scoring-candidates)
+                             winning-candidate
+                             (if termifiedp
+                                 estimated-size
                                nil)
-                           clauses
-                           wrld
-                           state))))
+                             clauses
+                             wrld
+                             state))))))
                 (mv 'continue
                     clauses
                     newer-pspv

@@ -2641,6 +2641,28 @@
 (defun waterfall-msg1 (processor cl-id signal clauses new-hist msg ttree pspv
                                  state)
   (with-output-lock
+   (cond
+    ((eq (f-get-global 'raw-proof-format state) :structured)
+
+; Structured output mode: emit a single s-expression per waterfall step
+; instead of English prose.  This is consumed by the ACL2Lean translator.
+
+     (let* ((runes (merge-sort-lexorder (all-runes-in-ttree ttree nil)))
+            (cl-id-str (string-for-tilde-@-clause-id-phrase cl-id))
+            (result (if (null clauses) :proved :subgoals)))
+       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4)~%"
+            (list (cons #\0 cl-id-str)
+                  (cons #\1 processor)
+                  (cons #\2 result)
+                  (cons #\3 runes)
+                  (cons #\4 (if clauses
+                                (msg " :NEW-CLAUSES ~x0" clauses)
+                              "")))
+            (proofs-co state) state nil)))
+    (t
+
+; Normal output mode (nil, t, or :clause).
+
    (let ((gag-mode (gag-mode)))
      (pprogn
 
@@ -2702,7 +2724,7 @@
            (eliminate-irrelevance-clause-msg1 signal clauses ttree
                                               pspv state))
           (otherwise
-           (push-clause-msg1 cl-id signal clauses ttree pspv state)))))))))
+           (push-clause-msg1 cl-id signal clauses ttree pspv state)))))))))))
 
 (defmacro io?-prove-cw (vars body &rest keyword-args)
 
@@ -2724,22 +2746,31 @@
   `(io?-prove-cw ,@rst))
 
 (defun waterfall-print-clause-body (cl-id clause state)
-  (with-output-lock
-   (pprogn
-    (increment-timer 'prove-time state)
-    (fms "~@0~|~q1.~|"
-         (list (cons #\0 (tilde-@-clause-id-phrase cl-id))
-               (cons #\1 (if (eq (f-get-global 'raw-proof-format state)
-                                 :clause)
-                             clause
-                           (prettyify-clause
-                            clause
-                            (let*-abstractionp state)
-                            (w state)))))
-         (proofs-co state)
-         state
-         (term-evisc-tuple nil state))
-    (increment-timer 'print-time state))))
+  (cond
+   ((eq (f-get-global 'raw-proof-format state) :structured)
+
+; In structured mode, clause data is included in the :STEP s-expression
+; emitted by waterfall-msg1, so we suppress the separate clause body print.
+
+    (pprogn (increment-timer 'prove-time state)
+            (increment-timer 'print-time state)))
+   (t
+    (with-output-lock
+     (pprogn
+      (increment-timer 'prove-time state)
+      (fms "~@0~|~q1.~|"
+           (list (cons #\0 (tilde-@-clause-id-phrase cl-id))
+                 (cons #\1 (if (eq (f-get-global 'raw-proof-format state)
+                                   :clause)
+                               clause
+                             (prettyify-clause
+                              clause
+                              (let*-abstractionp state)
+                              (w state)))))
+           (proofs-co state)
+           state
+           (term-evisc-tuple nil state))
+      (increment-timer 'print-time state))))))
 
 (defmacro waterfall-print-clause-id-fmt1-call (cl-id)
 
@@ -7532,6 +7563,8 @@
            (pprogn
             (io? prove nil state
                  (prev-action pool-lsts forcing-round msgs)
+                 (if (eq (f-get-global 'raw-proof-format state) :structured)
+                     state
                  (pprogn
                   (fms
                    (cond ((gag-mode)
@@ -7561,7 +7594,7 @@
                            0 (proofs-co state) state nil)
                      (declare (ignore col))
                      state))
-                   (t state))))
+                   (t state)))))
             (mv gagst state))))
          (('qed)
 
@@ -8010,16 +8043,23 @@
                  (member-eq 'prove (f-get-global 'inhibit-output-lst state))
                  (not (member-eq 'summary (f-get-global 'inhibit-output-lst
                                                         state))))
-            (fms "Q.E.D.~%" nil (proofs-co state) state nil)
+            (if (eq (f-get-global 'raw-proof-format state) :structured)
+                (fms "(:QED)~%" nil (proofs-co state) state nil)
+              (fms "Q.E.D.~%" nil (proofs-co state) state nil))
           state)
         (io? prove nil state nil
-             (fms "Q.E.D.~%" nil (proofs-co state) state nil))))
+             (if (eq (f-get-global 'raw-proof-format state) :structured)
+                 (fms "(:QED)~%" nil (proofs-co state) state nil)
+               (fms "Q.E.D.~%" nil (proofs-co state) state nil)))))
       (t
        (io? prove nil state (n)
-            (fms "q.e.d. (given ~n0 forced ~#1~[hypothesis~/hypotheses~])~%"
-                 (list (cons #\0 n)
-                       (cons #\1 (if (= n 1) 0 1)))
-                 (proofs-co state) state nil))))
+            (if (eq (f-get-global 'raw-proof-format state) :structured)
+                (fms "(:QED :FORCED ~x0)~%" (list (cons #\0 n))
+                     (proofs-co state) state nil)
+              (fms "q.e.d. (given ~n0 forced ~#1~[hypothesis~/hypotheses~])~%"
+                   (list (cons #\0 n)
+                         (cons #\1 (if (= n 1) 0 1)))
+                   (proofs-co state) state nil)))))
      (mv-let
       (n0 assns pairs ttree1)
       (extract-and-clausify-assumptions

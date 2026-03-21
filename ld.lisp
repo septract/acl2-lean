@@ -5160,7 +5160,7 @@
                        state))
 
 (defun set-raw-proof-format-fn (val state)
-  (declare (xargs :guard (member-eq val '(t nil :clause))))
+  (declare (xargs :guard (member-eq val '(t nil :clause :structured))))
   (f-put-global 'raw-proof-format val state))
 
 (defmacro set-raw-proof-format (val)
