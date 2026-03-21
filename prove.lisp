@@ -4820,6 +4820,8 @@
            (t
             (io?-prove@par
              (goal-already-printed-p)
+             (if (eq (f-get-global 'raw-proof-format state) :structured)
+                 state
              (fms "[Note:  A hint was supplied for the goal ~
                    ~#0~[above~/below~/above, provided by a :backtrack hint ~
                    superseding ~@1~].  Thanks!]~%"
@@ -4858,7 +4860,7 @@
                                 (cdr goal-already-printed-p)))))))
                   (proofs-co state)
                   state
-                  nil)
+                  nil))
              :io-marker cl-id)))
           (mv@par hint-settings state)))))
 
@@ -7620,6 +7622,8 @@
               (io? prove nil state
                    (prev-action forcing-round pool-lst entry cl-id jppl-flg
                                 gag-state)
+                   (if (eq (f-get-global 'raw-proof-format state) :structured)
+                       state
                    (let* ((cl-set (cadr entry))
                           (jppl-flg (if (gag-mode)
                                         (gag-mode-jppl-flg gag-state)
@@ -7697,7 +7701,7 @@
                               (proofs-co state)
                               state nil))
                         (& ; (consider cl-set pool-lst)
-                         state)))))
+                         state))))))
               (mv gagst state))))))
        (pop-clause-msg1 forcing-round (cdr lst) jppl-flg (caar lst) gag-state
                         msg-p state))))))
