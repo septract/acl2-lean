@@ -7613,6 +7613,13 @@
 ; used in place of str and the input alist if we are in raw-warning-format
 ; mode.
 
+  (if (eq (f-get-global 'raw-proof-format state) :structured)
+
+; In structured proof output mode, suppress all warnings to avoid contaminating
+; the machine-parseable output stream.  We still push-warning for the summary.
+
+      (pprogn (if summary (push-warning summary state) state)
+              state)
   (let ((channel (f-get-global 'proofs-co state)))
     (pprogn
      (if summary
@@ -7648,7 +7655,7 @@
                   channel state nil)
              (mv-let (col state)
                (fmt-in-ctx ctx col channel state)
-               (fmt-abbrev str alist col channel state "~%~%")))))))))
+               (fmt-abbrev str alist col channel state "~%~%"))))))))))
 
 (defun warnings-as-errors-val-guard (summary warnings-as-errors)
   (declare (xargs :guard t))

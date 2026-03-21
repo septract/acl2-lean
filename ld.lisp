@@ -1695,8 +1695,26 @@
 
     (reset-all-parallelism-variables))
 
+  (let ((new-ld-specials-alist
+         (if (eq (f-get-global 'raw-proof-format state) :structured)
+
+; In structured proof output mode, force all inner ld calls to also suppress
+; non-proof output.  Without this, ld saves/restores state globals, so the
+; inhibit-output-lst and prompt settings from set-raw-proof-format would be
+; lost when entering a nested ld.
+
+             (list* (cons 'ld-prompt nil)
+                    (cons 'ld-post-eval-print nil)
+                    (cons 'ld-verbose nil)
+                    new-ld-specials-alist)
+           new-ld-specials-alist)))
   (pprogn
     (f-put-ld-specials new-ld-specials-alist nil state)
+    (if (eq (f-get-global 'raw-proof-format state) :structured)
+        (f-put-global 'inhibit-output-lst
+                      '(proof-tree event summary warning error observation)
+                      state)
+      state)
     (update-cbd standard-oi0 state)
     (cond (#+acl2-loop-only (ld-verbose state)
            #-acl2-loop-only (and *first-entry-to-ld-fn-body-flg*
@@ -1743,7 +1761,7 @@
                   state
                   (ld-evisc-tuple state)))
             (t state))
-      (mv erp val state)))))
+      (mv erp val state))))))
 
 (defun ld-fn1 (standard-oi0 alist state bind-flg)
 
@@ -5161,7 +5179,26 @@
 
 (defun set-raw-proof-format-fn (val state)
   (declare (xargs :guard (member-eq val '(t nil :clause :structured))))
-  (f-put-global 'raw-proof-format val state))
+  (pprogn
+   (f-put-global 'raw-proof-format val state)
+   (cond
+    ((eq val :structured)
+
+; In structured mode, suppress all non-proof output so that stdout contains
+; only machine-parseable s-expressions.  This sets gag-mode off (to get
+; per-subgoal output), inhibits all non-proof output channels, and suppresses
+; the REPL prompt and return-value printing.
+
+     (pprogn
+      (f-put-global 'gag-mode nil state)
+      (f-put-global 'inhibit-output-lst
+                    '(proof-tree event summary warning error observation)
+                    state)
+      (f-put-global 'ld-prompt nil state)
+      (f-put-global 'ld-post-eval-print nil state)
+      (f-put-global 'ld-verbose nil state)
+      (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil)))
+    (t state))))
 
 (defmacro set-raw-proof-format (val)
   `(set-raw-proof-format-fn ,val state))
