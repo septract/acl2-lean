@@ -14327,6 +14327,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
   '(set-raw-proof-format-fn ; *structured-rewrite-log*
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*
+    rewrite-fncall ; *structured-rewrite-log*
     relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush

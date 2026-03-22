@@ -19726,10 +19726,17 @@ its attachment is ignored during proofs"))))
                                   (accumulate-rw-cache t ttree1 ttree)
                                   simplify-clause-pot-lst
                                   (access rewrite-constant rcnst :pt)))))
-                              (t (prog2$
+                              (t (progn$
                                   (brkpt2 t nil unify-subst gstack
                                           rewritten-body ttree1 rcnst ancestors
                                           state)
+                                  #-acl2-loop-only
+                                  (when (consp *structured-rewrite-log*)
+                                    (push (list :rewrite-step
+                                                :rune rune
+                                                :lhs term
+                                                :rhs rewritten-body)
+                                          (cdr *structured-rewrite-log*)))
                                   (mv step-limit
                                       rewritten-body
                                       (push-lemma+ rune ttree1 rcnst ancestors
@@ -19833,17 +19840,31 @@ its attachment is ignored during proofs"))))
                                                             ancestors body
                                                             rewritten-body)
                                                ttree1)))
-                                         (prog2$
+                                         (progn$
                                           (brkpt2 t nil unify-subst gstack
                                                   rewritten-body ttree2 rcnst
                                                   ancestors state)
+                                          #-acl2-loop-only
+                                          (when (consp *structured-rewrite-log*)
+                                            (push (list :rewrite-step
+                                                        :rune rune
+                                                        :lhs term
+                                                        :rhs rewritten-body)
+                                                  (cdr *structured-rewrite-log*)))
                                           (mv step-limit
                                               rewritten-body
                                               ttree2)))))
                               (t
-                               (prog2$
+                               (progn$
                                 (brkpt2 t nil unify-subst gstack rewritten-body
                                         ttree1 rcnst ancestors state)
+                                #-acl2-loop-only
+                                (when (consp *structured-rewrite-log*)
+                                  (push (list :rewrite-step
+                                              :rune rune
+                                              :lhs term
+                                              :rhs rewritten-body)
+                                        (cdr *structured-rewrite-log*)))
                                 (mv step-limit
                                     rewritten-body
                                     (push-lemma+ rune ttree1 rcnst
