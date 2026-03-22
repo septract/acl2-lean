@@ -2655,8 +2655,33 @@
                         (prog1 (nreverse (cdr *structured-rewrite-log*))
                                (setf (cdr *structured-rewrite-log*) nil))))
             #+acl2-loop-only
-            (rewrites nil))
-       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6)~%"
+            (rewrites nil)
+
+; Extract processor-specific details from the ttree.
+
+            (elim-seq (tagged-objects 'elim-sequence ttree))
+            (elim-vars (tagged-objects 'variables ttree))
+            (fert-bullet (tagged-objects 'bullet ttree))
+            (fert-target (tagged-objects 'target ttree))
+            (fert-equiv (tagged-objects 'equiv ttree))
+            (gen-terms (tagged-objects 'terms ttree))
+            (gen-vars (tagged-objects 'variables ttree))
+            (details
+             (cond
+              (elim-seq
+               (msg " :ELIM-SEQUENCE ~x0 :ELIM-VARS ~x1"
+                    elim-seq elim-vars))
+              (fert-bullet
+               (msg " :FERTILIZE (:BULLET ~x0 :TARGET ~x1 :EQUIV ~x2)"
+                    (car fert-bullet)
+                    (car fert-target)
+                    (car fert-equiv)))
+              ((and gen-terms
+                    (eq processor 'generalize-clause))
+               (msg " :GENERALIZE (:TERMS ~x0 :VARS ~x1)"
+                    gen-terms gen-vars))
+              (t ""))))
+       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6~@7)~%"
             (list (cons #\0 cl-id-str)
                   (cons #\1 processor)
                   (cons #\2 result)
@@ -2669,7 +2694,8 @@
                               ""))
                   (cons #\6 (if rewrites
                                 (msg " :REWRITES ~x0" rewrites)
-                              "")))
+                              ""))
+                  (cons #\7 details))
             (proofs-co state) state nil)))
     (t
 
