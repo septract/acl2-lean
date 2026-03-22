@@ -2652,8 +2652,16 @@
             (result (if (null clauses) :proved :subgoals))
             #-acl2-loop-only
             (rewrites (when (consp *structured-rewrite-log*)
-                        (prog1 (nreverse (cdr *structured-rewrite-log*))
-                               (setf (cdr *structured-rewrite-log*) nil))))
+                        (prog1
+                         (if (eq processor 'settled-down-clause)
+
+; Settled-down-clause re-runs the simplifier as a checkpoint.  Its
+; rewrite trace is redundant with the preceding simplify-clause step,
+; so we discard it.
+
+                             nil
+                           (nreverse (cdr *structured-rewrite-log*)))
+                         (setf (cdr *structured-rewrite-log*) nil))))
             #+acl2-loop-only
             (rewrites nil)
 
