@@ -2639,7 +2639,7 @@
   `(f-put-global 'splitter-output ,val state))
 
 (defun waterfall-msg1 (processor cl-id signal clauses new-hist msg ttree pspv
-                                 state)
+                                 state input-clause)
   (with-output-lock
    (cond
     ((eq (f-get-global 'raw-proof-format state) :structured)
@@ -2656,15 +2656,18 @@
                                (setf (cdr *structured-rewrite-log*) nil))))
             #+acl2-loop-only
             (rewrites nil))
-       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5)~%"
+       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6)~%"
             (list (cons #\0 cl-id-str)
                   (cons #\1 processor)
                   (cons #\2 result)
                   (cons #\3 runes)
-                  (cons #\4 (if clauses
+                  (cons #\4 (if input-clause
+                                (msg " :INPUT-CLAUSE ~x0" input-clause)
+                              ""))
+                  (cons #\5 (if clauses
                                 (msg " :NEW-CLAUSES ~x0" clauses)
                               ""))
-                  (cons #\5 (if rewrites
+                  (cons #\6 (if rewrites
                                 (msg " :REWRITES ~x0" rewrites)
                               "")))
             (proofs-co state) state nil)))
@@ -2947,9 +2950,9 @@
      (pprogn@par
       (serial-first-form-parallel-second-form@par
        (io? prove nil state
-            (pspv ttree new-hist clauses signal cl-id processor msg)
+            (pspv ttree new-hist clauses signal cl-id processor msg clause)
             (waterfall-msg1 processor cl-id signal clauses new-hist msg ttree
-                            pspv state)
+                            pspv state clause)
             :io-marker cl-id)
 
 ; Parallelism wart: consider replacing print-splitter-rules-summary below.  A
@@ -2966,9 +2969,9 @@
        (cond ((equal (f-get-global 'waterfall-printing state) :full)
               (io? prove t
                    state
-                   (pspv ttree new-hist clauses signal cl-id processor msg)
+                   (pspv ttree new-hist clauses signal cl-id processor msg clause)
                    (waterfall-msg1 processor cl-id signal clauses new-hist msg
-                                   ttree pspv state)
+                                   ttree pspv state clause)
                    :io-marker cl-id))
              (t 'nothing-to-print
 ;               (io? prove t
