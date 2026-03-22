@@ -2649,14 +2649,23 @@
 
      (let* ((runes (merge-sort-lexorder (all-runes-in-ttree ttree nil)))
             (cl-id-str (string-for-tilde-@-clause-id-phrase cl-id))
-            (result (if (null clauses) :proved :subgoals)))
-       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4)~%"
+            (result (if (null clauses) :proved :subgoals))
+            #-acl2-loop-only
+            (rewrites (when (consp *structured-rewrite-log*)
+                        (prog1 (nreverse (cdr *structured-rewrite-log*))
+                               (setf (cdr *structured-rewrite-log*) nil))))
+            #+acl2-loop-only
+            (rewrites nil))
+       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5)~%"
             (list (cons #\0 cl-id-str)
                   (cons #\1 processor)
                   (cons #\2 result)
                   (cons #\3 runes)
                   (cons #\4 (if clauses
                                 (msg " :NEW-CLAUSES ~x0" clauses)
+                              ""))
+                  (cons #\5 (if rewrites
+                                (msg " :REWRITES ~x0" rewrites)
                               "")))
             (proofs-co state) state nil)))
     (t

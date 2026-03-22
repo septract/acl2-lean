@@ -5197,8 +5197,15 @@
       (f-put-global 'ld-prompt nil state)
       (f-put-global 'ld-post-eval-print nil state)
       (f-put-global 'ld-verbose nil state)
-      (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil)))
-    (t state))))
+      (prog2$
+       #-acl2-loop-only (setq *structured-rewrite-log* (list :active))
+       #+acl2-loop-only nil
+       (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil))))
+    (t
+     (prog2$
+      #-acl2-loop-only (setq *structured-rewrite-log* nil)
+      #+acl2-loop-only nil
+      state)))))
 
 (defmacro set-raw-proof-format (val)
   `(set-raw-proof-format-fn ,val state))

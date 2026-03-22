@@ -14324,7 +14324,10 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
 ; errors are caused by attempting to call some of these functions in safe-mode,
 ; consider adding such functions to the list *oneify-primitives*.
 
-  '(relieve-hyp-synp ; *deep-gstack*
+  '(set-raw-proof-format-fn ; *structured-rewrite-log*
+    waterfall-msg1 ; *structured-rewrite-log*
+    rewrite-with-lemma ; *structured-rewrite-log*
+    relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush
     ev-rec-acl2-unwind-protect ; *acl2-unwind-protect-stack*

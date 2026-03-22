@@ -20,6 +20,16 @@
 
 (in-package "ACL2")
 
+; Structured proof output: rewrite trace log.
+; When :structured mode is active, *structured-rewrite-log* is non-nil.
+; It accumulates (:rewrite-step ...) plists during rewriting.
+; waterfall-msg1 in prove.lisp reads and clears this list.
+; nil = inactive, non-nil = active (list of rewrite steps).
+
+#-acl2-loop-only
+(defvar *structured-rewrite-log* nil
+  "When non-nil, accumulates rewrite steps for structured proof output.")
+
 ; We introduce ev-fncall+ early in this file to support its use in the
 ; definition of scons-term.
 
@@ -19398,9 +19408,16 @@ its attachment is ignored during proofs"))))
                                   'rhs))
                                 :conc
                                 (access rewrite-rule lemma :hyps))
-                               (prog2$
+                               (progn$
                                 (brkpt2 t nil unify-subst gstack rewritten-rhs
                                         ttree rcnst ancestors state)
+                                #-acl2-loop-only
+                                (when (consp *structured-rewrite-log*)
+                                  (push (list :rewrite-step
+                                              :rune rune
+                                              :lhs term
+                                              :rhs rewritten-rhs)
+                                        (cdr *structured-rewrite-log*)))
                                 (mv step-limit t rewritten-rhs
                                     (push-lemma
                                      (geneqv-refinementp
