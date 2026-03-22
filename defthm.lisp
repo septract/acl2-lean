@@ -12183,6 +12183,14 @@
                                                (and (null instructions)
                                                     (default-hints wrld1))
                                                ctx wrld1 state)))
+                   (ignore
+                    (if (eq (f-get-global 'raw-proof-format state) :structured)
+                        (pprogn
+                         (fms "(:DEFTHM ~x0)~%"
+                              (list (cons #\0 name))
+                              (proofs-co state) state nil)
+                         (value nil))
+                      (value nil)))
                    (ttree2 (cond (instructions
                                   (er-progn
                                    (cond (thints (er soft ctx
