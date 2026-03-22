@@ -14328,6 +14328,11 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*
     rewrite-fncall ; *structured-rewrite-log*
+    expand-abbreviations-with-lemma ; *structured-rewrite-log*
+    rewrite-if ; *structured-rewrite-log*
+    rewrite-if-finish ; *structured-rewrite-log*
+    rewrite-atm ; *structured-rewrite-log*
+    rewrite-clause ; *structured-rewrite-log*
     relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush

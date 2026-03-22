@@ -17126,6 +17126,19 @@ its attachment is ignored during proofs"))))
                                type-alist obj geneqv pequiv-info wrld state
                                fnstack ancestors backchain-limit
                                simplify-clause-pot-lst rcnst gstack ttree)
+  (progn$
+   #-acl2-loop-only
+   (when (consp *structured-rewrite-log*)
+     (push (list (cond (must-be-true :if-test-true)
+                       (must-be-false :if-test-false)
+                       (t :if-test-unknown))
+                 :test test
+                 :unrewritten-test unrewritten-test
+                 :justification (and (or must-be-true must-be-false)
+                                     (list :runes (all-runes-in-ttree ts-ttree nil)
+                                           :parents (tagged-objects 'pt ts-ttree))))
+           (cdr *structured-rewrite-log*)))
+   #+acl2-loop-only nil
   (cond
    (must-be-true
     (if (and unrewritten-test
@@ -17175,7 +17188,7 @@ its attachment is ignored during proofs"))))
                                 (rw-cache-exit-context ttree ttree1))
                    (rewrite-entry
                     (rewrite-with-lemmas
-                     rewritten-term)))))))))
+                     rewritten-term))))))))))
 
 (defun rewrite-if (test unrewritten-test left right alist ; &extra formals
                         rdepth step-limit
@@ -17215,10 +17228,19 @@ its attachment is ignored during proofs"))))
 ; It often happens that the test rewrites to *t* or *nil* and we can
 ; avoid the assume-true-false below.
 
-       (if (cadr test)
-           (if (and unrewritten-test ; optimization (see e.g. rewrite-if above)
-                    (geneqv-refinementp 'iff geneqv wrld)
-                    (equal unrewritten-test left))
+       (progn$
+        #-acl2-loop-only
+        (when (consp *structured-rewrite-log*)
+          (push (list (if (cadr test) :if-test-true :if-test-false)
+                      :test test
+                      :unrewritten-test unrewritten-test
+                      :justification :rewritten-to-constant)
+                (cdr *structured-rewrite-log*)))
+        #+acl2-loop-only nil
+        (if (cadr test)
+            (if (and unrewritten-test ; optimization (see e.g. rewrite-if above)
+                     (geneqv-refinementp 'iff geneqv wrld)
+                     (equal unrewritten-test left))
 
 ; We are in the process of rewriting a term of the form (if x x y), which
 ; presumably came from an untranslated term of the form (or x y).  We do not
@@ -17226,9 +17248,9 @@ its attachment is ignored during proofs"))))
 ; the fact that the following is a theorem:  (iff (if x x y) (if x t y)).
 ; We will use this observation later in the body of this function as well.
 
-               (mv step-limit *t* ttree)
-             (rewrite-entry (rewrite left alist 2)))
-         (rewrite-entry (rewrite right alist 3))))
+                (mv step-limit *t* ttree)
+              (rewrite-entry (rewrite left alist 2)))
+          (rewrite-entry (rewrite right alist 3)))))
       ((eq (access rewrite-constant rcnst :heavy-linearp) :heavy)
        (sl-let (must-be-true
                 must-be-false

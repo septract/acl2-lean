@@ -5657,9 +5657,29 @@
 ; clause and so we have reduced the literal to t, proving the clause.
 ; So we report this reduction.
 
-            (mv step-limit *nil* knownp-ttree nil))
+            (progn$
+             #-acl2-loop-only
+             (when (consp *structured-rewrite-log*)
+               (push (list :type-set-reasoning
+                           :term atm
+                           :result :nil
+                           :not-flg not-flg
+                           :justification (all-runes-in-ttree knownp-ttree nil))
+                     (cdr *structured-rewrite-log*)))
+             #+acl2-loop-only nil
+             (mv step-limit *nil* knownp-ttree nil)))
            ((and knownp (not not-flg) (not nilp))
-            (mv step-limit *t* knownp-ttree nil))
+            (progn$
+             #-acl2-loop-only
+             (when (consp *structured-rewrite-log*)
+               (push (list :type-set-reasoning
+                           :term atm
+                           :result :true
+                           :not-flg not-flg
+                           :justification (all-runes-in-ttree knownp-ttree nil))
+                     (cdr *structured-rewrite-log*)))
+             #+acl2-loop-only nil
+             (mv step-limit *t* knownp-ttree nil)))
            (t
             (let ((lemmas0 (tagged-objects 'lemma ttree0))
                   (ttree00 (remove-tag-from-tag-tree 'lemma ttree0)))
@@ -7334,6 +7354,15 @@
     (mv-let
      (not-flg atm)
      (strip-not (car tail))
+     (progn$
+      #-acl2-loop-only
+      (when (consp *structured-rewrite-log*)
+        (push (list :begin-literal
+                    :index bkptr
+                    :literal (car tail)
+                    :not-flg not-flg)
+              (cdr *structured-rewrite-log*)))
+      #+acl2-loop-only nil
      (let* ((new-pts (cons (car pts)
                            (access rewrite-constant rcnst :pt)))
             (local-rcnst
@@ -7420,14 +7449,40 @@
                     (val (if not-flg
                              (dumb-negate-lit val)
                            val))
-                    (branches (pstk
-                               (clausify val
-                                         (convert-clause-to-assumptions
-                                          (cdr tail)
-                                          (convert-clause-to-assumptions
-                                           new-clause nil))
-                                         nil
-                                         sr-limit)))
+                    (branches
+                     (prog2$
+                      #-acl2-loop-only
+                      (when (and (consp *structured-rewrite-log*)
+                                 (not (equal val (car tail))))
+                        (push (list :rewritten-literal
+                                    :original (car tail)
+                                    :result val)
+                              (cdr *structured-rewrite-log*)))
+                      #+acl2-loop-only nil
+                      (pstk
+                       (clausify val
+                                 (convert-clause-to-assumptions
+                                  (cdr tail)
+                                  (convert-clause-to-assumptions
+                                   new-clause nil))
+                                 nil
+                                 sr-limit))))
+                    (branches
+                     (prog2$
+                      #-acl2-loop-only
+                      (when (consp *structured-rewrite-log*)
+                        (push (list :end-literal
+                                    :index bkptr
+                                    :result val
+                                    :branches (length branches))
+                              (cdr *structured-rewrite-log*))
+                        (when (> (length branches) 1)
+                          (push (list :case-split
+                                      :literal-index bkptr
+                                      :num-branches (length branches))
+                                (cdr *structured-rewrite-log*))))
+                      #+acl2-loop-only nil
+                      branches))
                     (ttree1 (if (and (null (cdr tail))
                                      (consp branches)
                                      (null (cdr branches))
@@ -7630,7 +7685,7 @@
                                            (cons-tag-trees fttree1 fttree))
                                       (cdr segs) ; splitp
                                       state
-                                      step-limit)))))))))))))))
+                                      step-limit))))))))))))))))
 
 (defun rewrite-clause-lst (segs bkptr gstack cdr-tail cdr-pts new-clause
                                 fc-pair-lst wrld simplify-clause-pot-lst rcnst

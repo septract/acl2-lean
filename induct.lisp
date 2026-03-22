@@ -131,20 +131,29 @@
                              wrld)
     (cond
      (wonp
-      (with-accumulated-persistence
-       (access rewrite-rule lemma :rune)
-       ((the #.*fixnum-type* step-limit) term ttree)
-       t
-       (expand-abbreviations
-        (access rewrite-rule lemma :rhs)
-        unify-subst
-        geneqv
-        pequiv-info
-        fns-to-be-ignored-by-rewrite
-        (adjust-rdepth rdepth) step-limit ens wrld state
-        (push-lemma cr-rune
-                    (push-lemma (access rewrite-rule lemma :rune)
-                                ttree)))))
+      (prog2$
+       #-acl2-loop-only
+       (when (consp *structured-rewrite-log*)
+         (push (list :rewrite-step
+                     :rune (access rewrite-rule lemma :rune)
+                     :lhs term
+                     :rhs :abbreviation-expansion)
+               (cdr *structured-rewrite-log*)))
+       #+acl2-loop-only nil
+       (with-accumulated-persistence
+        (access rewrite-rule lemma :rune)
+        ((the #.*fixnum-type* step-limit) term ttree)
+        t
+        (expand-abbreviations
+         (access rewrite-rule lemma :rhs)
+         unify-subst
+         geneqv
+         pequiv-info
+         fns-to-be-ignored-by-rewrite
+         (adjust-rdepth rdepth) step-limit ens wrld state
+         (push-lemma cr-rune
+                     (push-lemma (access rewrite-rule lemma :rune)
+                                 ttree))))))
      (t (mv step-limit term ttree)))))
 
 (defun expand-abbreviations (term alist geneqv pequiv-info
