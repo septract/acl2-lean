@@ -7731,23 +7731,40 @@
                     (access rewrite-constant rcnst
                             :current-enabled-structure)
                     wrld state ttree1)
-                   (rewrite-clause unrewritten
-                                   unwritten-pts
-                                   bkptr
-                                   gstack
-                                   rewritten
-                                   fc-pair-lst
-                                   wrld
-                                   simplify-clause-pot-lst
-                                   rcnst
-                                   flg1
-                                   ecnt1
-                                   ans1
-                                   ttree2
-                                   fttree
-                                   splitp
-                                   state
-                                   step-limit))))))
+                   (prog2$
+                    #-acl2-loop-only
+                    (when (consp *structured-rewrite-log*)
+                      (push (list :begin-branch
+                                  :segment (car segs))
+                            (cdr *structured-rewrite-log*)))
+                    #+acl2-loop-only nil
+                    (sl-let (flg2 ecnt2 ans2 ttree3)
+                            (rewrite-clause unrewritten
+                                           unwritten-pts
+                                           bkptr
+                                           gstack
+                                           rewritten
+                                           fc-pair-lst
+                                           wrld
+                                           simplify-clause-pot-lst
+                                           rcnst
+                                           flg1
+                                           ecnt1
+                                           ans1
+                                           ttree2
+                                           fttree
+                                           splitp
+                                           state
+                                           step-limit)
+                            (prog2$
+                             #-acl2-loop-only
+                             (when (consp *structured-rewrite-log*)
+                               (push (list :end-branch)
+                                     (cdr *structured-rewrite-log*)))
+                             #+acl2-loop-only nil
+                             (mv step-limit
+                                 flg2 ecnt2 ans2
+                                 ttree3)))))))))
 
 )
 

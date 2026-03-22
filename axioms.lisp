@@ -14333,6 +14333,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-if-finish ; *structured-rewrite-log*
     rewrite-atm ; *structured-rewrite-log*
     rewrite-clause ; *structured-rewrite-log*
+    rewrite-clause-lst ; *structured-rewrite-log*
     relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush
