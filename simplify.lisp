@@ -5659,7 +5659,8 @@
 
             (progn$
              #-acl2-loop-only
-             (when (consp *structured-rewrite-log*)
+             (when (and (consp *structured-rewrite-log*)
+                        (zerop *structured-rewrite-depth*))
                (push (list :type-set-reasoning
                            :term atm
                            :result :nil
@@ -5671,7 +5672,8 @@
            ((and knownp (not not-flg) (not nilp))
             (progn$
              #-acl2-loop-only
-             (when (consp *structured-rewrite-log*)
+             (when (and (consp *structured-rewrite-log*)
+                        (zerop *structured-rewrite-depth*))
                (push (list :type-set-reasoning
                            :term atm
                            :result :true
@@ -5803,6 +5805,7 @@
                                (progn$
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*)
+                                           (zerop *structured-rewrite-depth*)
                                            (not (equal ans1 atm)))
                                   (push (list :rewrite-step
                                               :rune '(:clause-context-resolution nil)
