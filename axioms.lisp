@@ -14339,6 +14339,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite ; *structured-rewrite-log*
     rewrite-solidify-rec ; *structured-rewrite-log*
     rewrite-recognizer ; *structured-rewrite-log*
+    rewrite-equal ; *structured-rewrite-log*
     rewrite-if1 ; *structured-rewrite-log*
     rewrite-if11 ; *structured-rewrite-log*
     relieve-hyp-synp ; *deep-gstack*

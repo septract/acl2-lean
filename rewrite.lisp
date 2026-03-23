@@ -1550,7 +1550,8 @@ its attachment is ignored during proofs"))))
                              (caddr args))))
              (progn$
               #-acl2-loop-only
-              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*)
+                         (not (equal (cons fn args) result)))
                 (push (list :rewrite-step
                             :rune '(:if-simplification nil)
                             :lhs (cons fn args)
@@ -17647,9 +17648,29 @@ its attachment is ignored during proofs"))))
              (type-set-equal ts-lhs ts-rhs ttree+ ttree)
              (cond
               ((ts= ts-equality *ts-t*)
-               (mv step-limit *t* ttree-equality))
+               (progn$
+                #-acl2-loop-only
+                (when (and (consp *structured-rewrite-log*)
+                           (zerop *structured-rewrite-depth*))
+                  (push (list :rewrite-step
+                              :rune '(:type-set-equality nil)
+                              :lhs (fcons-term* 'equal lhs rhs)
+                              :rhs *t*)
+                        (cdr *structured-rewrite-log*)))
+                #+acl2-loop-only nil
+                (mv step-limit *t* ttree-equality)))
               ((ts= ts-equality *ts-nil*)
-               (mv step-limit *nil* ttree-equality))
+               (progn$
+                #-acl2-loop-only
+                (when (and (consp *structured-rewrite-log*)
+                           (zerop *structured-rewrite-depth*))
+                  (push (list :rewrite-step
+                              :rune '(:type-set-equality nil)
+                              :lhs (fcons-term* 'equal lhs rhs)
+                              :rhs *nil*)
+                        (cdr *structured-rewrite-log*)))
+                #+acl2-loop-only nil
+                (mv step-limit *nil* ttree-equality)))
 
 ; The commented-out case just below, here explicitly before we added the above
 ; call of type-set-equal, is handled by that call.
