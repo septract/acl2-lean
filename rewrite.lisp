@@ -4879,6 +4879,7 @@ its attachment is ignored during proofs"))))
                             (progn$
                              #-acl2-loop-only
                              (when (and (consp *structured-rewrite-log*)
+                                        (zerop *structured-rewrite-depth*)
                                         (not (equal solidified-term term)))
                                (push (list :rewrite-step
                                            :rune '(:type-alist nil)
