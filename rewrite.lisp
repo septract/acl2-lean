@@ -1539,11 +1539,19 @@ its attachment is ignored during proofs"))))
 
            (mv nil (cons-term fn args) ttree))
           ((eq fn 'if)
-           (mv t
-               (if (cadr (car args))
-                   (cadr args)
-                   (caddr args))
-               ttree))
+           (let ((result (if (cadr (car args))
+                             (cadr args)
+                             (caddr args))))
+             (progn$
+              #-acl2-loop-only
+              (when (consp *structured-rewrite-log*)
+                (push (list :rewrite-step
+                            :rune '(:if-simplification nil)
+                            :lhs (cons fn args)
+                            :rhs result)
+                      (cdr *structured-rewrite-log*)))
+              #+acl2-loop-only nil
+              (mv t result ttree))))
           ((programp fn wrld)
 
 ; It is March, 2019, and we ask: Is this test needed?  At one time we said "see
@@ -4947,10 +4955,28 @@ its attachment is ignored during proofs"))))
   (mv-let (ts ts-ttree)
     (look-in-type-alist term type-alist wrld)
     (cond ((ts= ts *ts-nil*)
-           (mv *nil* (cons-tag-trees ts-ttree ttree)))
+           (progn$
+            #-acl2-loop-only
+            (when (consp *structured-rewrite-log*)
+              (push (list :rewrite-step
+                          :rune '(:type-alist nil)
+                          :lhs term
+                          :rhs *nil*)
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv *nil* (cons-tag-trees ts-ttree ttree))))
           ((and (equal geneqv *geneqv-iff*)
                 (ts-disjointp ts *ts-nil*))
-           (mv *t* (cons-tag-trees ts-ttree ttree)))
+           (progn$
+            #-acl2-loop-only
+            (when (consp *structured-rewrite-log*)
+              (push (list :rewrite-step
+                          :rune '(:type-alist nil)
+                          :lhs term
+                          :rhs *t*)
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv *t* (cons-tag-trees ts-ttree ttree))))
           (t
            (mv term ttree)))))
 
@@ -4986,7 +5012,17 @@ its attachment is ignored during proofs"))))
                   (cond ((and swapped-p (rewrite-if-avoid-swap))
                          (mcons-term* 'if (dumb-negate-lit test) right left))
                         (t (mcons-term* 'if test left right)))))
-    (cond ((equal left right) (mv left ttree))
+    (cond ((equal left right)
+           (progn$
+            #-acl2-loop-only
+            (when (consp *structured-rewrite-log*)
+              (push (list :rewrite-step
+                          :rune '(:if-same-branches nil)
+                          :lhs (if-call test left right swapped-p)
+                          :rhs left)
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv left ttree)))
           ((equal right *nil*)
            (cond
             ((equal test left)
