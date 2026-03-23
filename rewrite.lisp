@@ -4759,7 +4759,18 @@ its attachment is ignored during proofs"))))
     (cond ((equal term *nil*) (mv *nil* ttree))
           (t (let ((rune (geneqv-refinementp 'iff geneqv wrld)))
                (cond (rune
-                      (mv *t* (push-lemma rune ttree)))
+                      ; TRACE-LOG: rewrite-step (:iff-implies-t) in rewrite-solidify-rec
+                      (progn$
+                       #-acl2-loop-only
+                       (when (and (consp *structured-rewrite-log*)
+                                  (zerop *structured-rewrite-depth*))
+                         (push (list :rewrite-step
+                                     :rune '(:iff-implies-t nil)
+                                     :lhs term
+                                     :rhs *t*)
+                               (cdr *structured-rewrite-log*)))
+                       #+acl2-loop-only nil
+                       (mv *t* (push-lemma rune ttree))))
                      (t (mv term ttree)))))))
    ((ffn-symb-p term 'if)
 
@@ -5192,9 +5203,22 @@ its attachment is ignored during proofs"))))
 ; this insight is that we can see that if ts does not intersect
 ; true-ts then it MUST intersect false-ts.
 
-     (t (mv *nil*
-            (push-lemma (access recognizer-tuple recog-tuple :rune)
-                        ttree+))))))
+     (t
+      ; TRACE-LOG: rewrite-step (recognizer) in rewrite-recognizer [false case]
+      (progn$
+       #-acl2-loop-only
+       (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+         (push (list :rewrite-step
+                     :rune (access recognizer-tuple recog-tuple :rune)
+                     :lhs (mcons-term*
+                           (access recognizer-tuple recog-tuple :fn)
+                           arg)
+                     :rhs *nil*)
+               (cdr *structured-rewrite-log*)))
+       #+acl2-loop-only nil
+       (mv *nil*
+           (push-lemma (access recognizer-tuple recog-tuple :rune)
+                       ttree+)))))))
 
 ; In a departure from Nqthm, we use a lexicographic order on lists of
 ; terms for the loop-stopping algorithm.  This change was motivated by
@@ -17653,10 +17677,32 @@ its attachment is ignored during proofs"))))
    #.*fixnum-type*
    (cond
     ((equal lhs rhs)
-     (mv step-limit *t* (puffert ttree)))
+     ; TRACE-LOG: rewrite-step (:equal-self) in rewrite-equal
+     (progn$
+      #-acl2-loop-only
+      (when (and (consp *structured-rewrite-log*)
+                 (zerop *structured-rewrite-depth*))
+        (push (list :rewrite-step
+                    :rune '(:equal-self nil)
+                    :lhs (fcons-term* 'equal lhs rhs)
+                    :rhs *t*)
+              (cdr *structured-rewrite-log*)))
+      #+acl2-loop-only nil
+      (mv step-limit *t* (puffert ttree))))
     ((and (quotep lhs)
           (quotep rhs))
-     (mv step-limit *nil* (puffert ttree)))
+     ; TRACE-LOG: rewrite-step (:equal-constant) in rewrite-equal
+     (progn$
+      #-acl2-loop-only
+      (when (and (consp *structured-rewrite-log*)
+                 (zerop *structured-rewrite-depth*))
+        (push (list :rewrite-step
+                    :rune '(:equal-constant nil)
+                    :lhs (fcons-term* 'equal lhs rhs)
+                    :rhs *nil*)
+              (cdr *structured-rewrite-log*)))
+      #+acl2-loop-only nil
+      (mv step-limit *nil* (puffert ttree))))
     (t
      (mv-let
       (ts-lookup ttree-lookup)
