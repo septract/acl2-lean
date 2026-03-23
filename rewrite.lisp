@@ -1596,7 +1596,16 @@ its attachment is ignored during proofs"))))
                                ttree)))))))))
    ((and (eq fn 'equal)
          (equal (car args) (cadr args)))
-    (mv t *t* (puffert ttree)))
+    (progn$
+     #-acl2-loop-only
+     (when (consp *structured-rewrite-log*)
+       (push (list :rewrite-step
+                   :rune '(:equal-self nil)
+                   :lhs (cons-term fn args)
+                   :rhs *t*)
+             (cdr *structured-rewrite-log*)))
+     #+acl2-loop-only nil
+     (mv t *t* (puffert ttree))))
    (t (mv nil (cons-term fn args) ttree))))
 
 (mutual-recursion
@@ -5054,9 +5063,21 @@ its attachment is ignored during proofs"))))
              (mv (mcons-term* (access recognizer-tuple recog-tuple :fn)
                               arg)
                  ttree))
-            (t (mv *t*
-                   (push-lemma (access recognizer-tuple recog-tuple :rune)
-                               ttree+)))))
+            (t
+             (progn$
+              #-acl2-loop-only
+              (when (consp *structured-rewrite-log*)
+                (push (list :rewrite-step
+                            :rune (access recognizer-tuple recog-tuple :rune)
+                            :lhs (mcons-term*
+                                  (access recognizer-tuple recog-tuple :fn)
+                                  arg)
+                            :rhs *t*)
+                      (cdr *structured-rewrite-log*)))
+              #+acl2-loop-only nil
+              (mv *t*
+                  (push-lemma (access recognizer-tuple recog-tuple :rune)
+                              ttree+))))))
 
 ; Once upon a time we had:
 
@@ -17268,6 +17289,11 @@ its attachment is ignored during proofs"))))
                       :test test
                       :unrewritten-test unrewritten-test
                       :justification :rewritten-to-constant)
+                (cdr *structured-rewrite-log*))
+          (push (list :rewrite-step
+                      :rune '(:if-simplification nil)
+                      :lhs (mcons-term* 'if test left right)
+                      :rhs (if (cadr test) left right))
                 (cdr *structured-rewrite-log*)))
         #+acl2-loop-only nil
         (if (cadr test)
