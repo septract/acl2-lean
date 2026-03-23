@@ -5800,7 +5800,17 @@
 ; We have proved the original literal from which atm is derived; hence we have
 ; proved the clause.  So we report this reduction.
 
-                               (mv step-limit ans1 ttree nil))
+                               (progn$
+                                #-acl2-loop-only
+                                (when (and (consp *structured-rewrite-log*)
+                                           (not (equal ans1 atm)))
+                                  (push (list :rewrite-step
+                                              :rune '(:clause-context-resolution nil)
+                                              :lhs atm
+                                              :rhs ans1)
+                                        (cdr *structured-rewrite-log*)))
+                                #+acl2-loop-only nil
+                                (mv step-limit ans1 ttree nil)))
                               ((all-type-reasoning-tags-p ans2)
 
 ; Type-reasoning alone has been used, so we are careful in what we allow.
@@ -6425,6 +6435,15 @@
     (find-trivial-equivalence remove-flg cl ens wrld avoid-lst)
     (cond
      (lit-position
+      (prog2$
+       #-acl2-loop-only
+       (when (consp *structured-rewrite-log*)
+         (push (list :branch-substitution
+                     :equivalence equiv
+                     :lhs lhs
+                     :rhs rhs)
+               (cdr *structured-rewrite-log*)))
+       #+acl2-loop-only nil
       (mv-let (new-cl new-pt-lst ttree)
               (subst-equiv-and-maybe-delete-lit
                equiv rhs lhs lit-position cl 0 pt-lst
@@ -6433,7 +6452,7 @@
               (remove-trivial-equivalences-rec new-cl new-pt-lst remove-flg
                                                ens wrld state
                                                ttree t
-                                               (cons lit avoid-lst))))
+                                               (cons lit avoid-lst)))))
      (t (mv hitp cl pt-lst ttree)))))
 
 (defun remove-trivial-equivalences (cl pt-lst remove-flg ens wrld state ttree)

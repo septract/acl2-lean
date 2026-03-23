@@ -1580,10 +1580,20 @@ its attachment is ignored during proofs"))))
                                        wrld state)
                     (push-lemma (fn-rune-nume 'hide nil nil wrld)
                                 ttree)))))
-             (t (mv t
-                    (kwote val)
-                    (push-lemma (fn-rune-nume fn nil t wrld)
-                                ttree))))))))
+             (t
+              (progn$
+               #-acl2-loop-only
+               (when (consp *structured-rewrite-log*)
+                 (push (list :rewrite-step
+                             :rune (list :executable-counterpart fn)
+                             :lhs (cons-term fn args)
+                             :rhs (kwote val))
+                       (cdr *structured-rewrite-log*)))
+               #+acl2-loop-only nil
+               (mv t
+                   (kwote val)
+                   (push-lemma (fn-rune-nume fn nil t wrld)
+                               ttree)))))))))
    ((and (eq fn 'equal)
          (equal (car args) (cadr args)))
     (mv t *t* (puffert ttree)))
