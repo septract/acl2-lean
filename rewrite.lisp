@@ -4850,8 +4850,21 @@ its attachment is ignored during proofs"))))
                               (t (assoc-type-alist term type-alist wrld)))
                         (if (null ts)
                             (mv term ttree)
-                          (obj-table term ts ts-ttree
-                                     obj geneqv wrld ttree)))))))))
+                          (mv-let (solidified-term solidified-ttree)
+                            (obj-table term ts ts-ttree
+                                       obj geneqv wrld ttree)
+                            (progn$
+                             #-acl2-loop-only
+                             (when (and (consp *structured-rewrite-log*)
+                                        (not (equal solidified-term term)))
+                               (push (list :rewrite-step
+                                           :rune '(:type-alist nil)
+                                           :lhs term
+                                           :rhs solidified-term)
+                                     (cdr *structured-rewrite-log*)))
+                             #+acl2-loop-only nil
+                             (mv solidified-term
+                                 solidified-ttree)))))))))))
 
 (defconst *rewrite-equiv-solidify-iteration-bound*
 
@@ -16931,11 +16944,21 @@ its attachment is ignored during proofs"))))
                                                         wrld)
                                           ttree)))
                                     (t (mv step-limit new-term2 ttree))))))
-                               (t (mv step-limit
-                                      (kwote val)
-                                      (push-lemma
-                                       (fn-rune-nume fn nil t wrld)
-                                       ttree))))))))))
+                               (t
+                                (progn$
+                                 #-acl2-loop-only
+                                 (when (consp *structured-rewrite-log*)
+                                   (push (list :rewrite-step
+                                               :rune (list :executable-counterpart fn)
+                                               :lhs (cons-term fn rewritten-args)
+                                               :rhs (kwote val))
+                                         (cdr *structured-rewrite-log*)))
+                                 #+acl2-loop-only nil
+                                 (mv step-limit
+                                     (kwote val)
+                                     (push-lemma
+                                      (fn-rune-nume fn nil t wrld)
+                                      ttree)))))))))))
                      ((and (eq fn 'EV$)
                            (global-val 'projects/apply/base-includedp wrld)
                            (active-runep '(:rewrite ev$-opener)) ; uses ens!

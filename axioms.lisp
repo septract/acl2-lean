@@ -14336,6 +14336,8 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-clause-lst ; *structured-rewrite-log*
     scons-term ; *structured-rewrite-log*
     remove-trivial-equivalences-rec ; *structured-rewrite-log*
+    rewrite ; *structured-rewrite-log*
+    rewrite-solidify-rec ; *structured-rewrite-log*
     relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush
