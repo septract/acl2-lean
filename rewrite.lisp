@@ -5044,12 +5044,32 @@ its attachment is ignored during proofs"))))
           ((equal right *nil*)
            (cond
             ((equal test left)
-             (mv test ttree))
+             (progn$
+              #-acl2-loop-only
+              (when (and (consp *structured-rewrite-log*)
+                         (zerop *structured-rewrite-depth*))
+                (push (list :rewrite-step
+                            :rune '(:if-simplification nil)
+                            :lhs (if-call test left right swapped-p)
+                            :rhs test)
+                      (cdr *structured-rewrite-log*)))
+              #+acl2-loop-only nil
+              (mv test ttree)))
             ((equal left *t*)
              (mv-let (ts ts-ttree)
                (type-set test ok-to-force nil type-alist ens wrld ttree nil nil)
                (cond ((ts-subsetp ts *ts-boolean*)
-                      (mv test ts-ttree))
+                      (progn$
+                       #-acl2-loop-only
+                       (when (and (consp *structured-rewrite-log*)
+                                  (zerop *structured-rewrite-depth*))
+                         (push (list :rewrite-step
+                                     :rune '(:if-simplification nil)
+                                     :lhs (if-call test left right swapped-p)
+                                     :rhs test)
+                               (cdr *structured-rewrite-log*)))
+                       #+acl2-loop-only nil
+                       (mv test ts-ttree)))
                      (t (rewrite-if11 (if-call test left right swapped-p)
                                       type-alist geneqv wrld ttree)))))
             (t (rewrite-if11 (if-call test left right swapped-p)
@@ -5058,7 +5078,17 @@ its attachment is ignored during proofs"))))
                 (equal left *nil*)
                 (equal right *t*)
                 (rewrite-if-avoid-swap))
-           (mv (fcons-term* 'not test) ttree))
+           (progn$
+            #-acl2-loop-only
+            (when (and (consp *structured-rewrite-log*)
+                       (zerop *structured-rewrite-depth*))
+              (push (list :rewrite-step
+                          :rune '(:if-simplification nil)
+                          :lhs (if-call test left right swapped-p)
+                          :rhs (fcons-term* 'not test))
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv (fcons-term* 'not test) ttree)))
           (t (rewrite-if11 (if-call test left right swapped-p)
                            type-alist geneqv wrld ttree)))))
 
