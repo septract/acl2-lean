@@ -7758,7 +7758,42 @@
                     (when (consp *structured-rewrite-log*)
                       (push (list :begin-branch
                                   :segment (car segs))
-                            (cdr *structured-rewrite-log*)))
+                            (cdr *structured-rewrite-log*))
+
+; Log context substitutions for equality assumptions in the branch.
+; When a branch segment contains (NOT (EQUAL lhs rhs)) — meaning the
+; clause assumes (EQUAL lhs rhs) is TRUE — and one side is a variable,
+; emit a CONTEXT-SUBST event recording the substitution.
+
+                      (dolist (lit (car segs))
+                        (when (and (nvariablep lit)
+                                   (not (fquotep lit))
+                                   (eq (ffn-symb lit) 'not)
+                                   (let ((inner (fargn lit 1)))
+                                     (and (nvariablep inner)
+                                          (not (fquotep inner))
+                                          (eq (ffn-symb inner) 'equal))))
+                          (let* ((inner (fargn lit 1))
+                                 (lhs (fargn inner 1))
+                                 (rhs (fargn inner 2)))
+                            (cond ((and (variablep lhs) (variablep rhs))
+                                   (push (list :context-subst
+                                               :variable rhs
+                                               :value lhs
+                                               :justification inner)
+                                         (cdr *structured-rewrite-log*)))
+                                  ((variablep lhs)
+                                   (push (list :context-subst
+                                               :variable lhs
+                                               :value rhs
+                                               :justification inner)
+                                         (cdr *structured-rewrite-log*)))
+                                  ((variablep rhs)
+                                   (push (list :context-subst
+                                               :variable rhs
+                                               :value lhs
+                                               :justification inner)
+                                         (cdr *structured-rewrite-log*))))))))
                     #+acl2-loop-only nil
                     (sl-let (flg2 ecnt2 ans2 ttree3)
                             (rewrite-clause unrewritten
