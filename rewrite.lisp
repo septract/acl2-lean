@@ -1586,7 +1586,7 @@ its attachment is ignored during proofs"))))
                (when (consp *structured-rewrite-log*)
                  (push (list :rewrite-step
                              :rune (list :executable-counterpart fn)
-                             :lhs (cons-term fn args)
+                             :lhs (cons fn args)
                              :rhs (kwote val))
                        (cdr *structured-rewrite-log*)))
                #+acl2-loop-only nil
@@ -1601,7 +1601,7 @@ its attachment is ignored during proofs"))))
      (when (consp *structured-rewrite-log*)
        (push (list :rewrite-step
                    :rune '(:equal-self nil)
-                   :lhs (cons-term fn args)
+                   :lhs (cons fn args)
                    :rhs *t*)
              (cdr *structured-rewrite-log*)))
      #+acl2-loop-only nil
@@ -16971,7 +16971,7 @@ its attachment is ignored during proofs"))))
                                  (when (consp *structured-rewrite-log*)
                                    (push (list :rewrite-step
                                                :rune (list :executable-counterpart fn)
-                                               :lhs (cons-term fn rewritten-args)
+                                               :lhs (cons fn rewritten-args)
                                                :rhs (kwote val))
                                          (cdr *structured-rewrite-log*)))
                                  #+acl2-loop-only nil
