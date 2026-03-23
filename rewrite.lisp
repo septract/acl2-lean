@@ -30,6 +30,12 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+#-acl2-loop-only
+(defvar *structured-rewrite-depth* 0
+  "Nesting depth for structured rewrite logging. 0 = literal level
+   (REWRITE-STEP events are logged). >0 = inside definition body or
+   rule RHS expansion (events are suppressed, folded into outer step).")
+
 ; We introduce ev-fncall+ early in this file to support its use in the
 ; definition of scons-term.
 
@@ -1544,7 +1550,7 @@ its attachment is ignored during proofs"))))
                              (caddr args))))
              (progn$
               #-acl2-loop-only
-              (when (consp *structured-rewrite-log*)
+              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                 (push (list :rewrite-step
                             :rune '(:if-simplification nil)
                             :lhs (cons fn args)
@@ -1591,7 +1597,7 @@ its attachment is ignored during proofs"))))
              (t
               (progn$
                #-acl2-loop-only
-               (when (consp *structured-rewrite-log*)
+               (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                  (push (list :rewrite-step
                              :rune (list :executable-counterpart fn)
                              :lhs (cons fn args)
@@ -1606,7 +1612,7 @@ its attachment is ignored during proofs"))))
          (equal (car args) (cadr args)))
     (progn$
      #-acl2-loop-only
-     (when (consp *structured-rewrite-log*)
+     (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
        (push (list :rewrite-step
                    :rune '(:equal-self nil)
                    :lhs (cons fn args)
@@ -4957,7 +4963,7 @@ its attachment is ignored during proofs"))))
     (cond ((ts= ts *ts-nil*)
            (progn$
             #-acl2-loop-only
-            (when (consp *structured-rewrite-log*)
+            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
               (push (list :rewrite-step
                           :rune '(:type-alist nil)
                           :lhs term
@@ -4969,7 +4975,7 @@ its attachment is ignored during proofs"))))
                 (ts-disjointp ts *ts-nil*))
            (progn$
             #-acl2-loop-only
-            (when (consp *structured-rewrite-log*)
+            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
               (push (list :rewrite-step
                           :rune '(:type-alist nil)
                           :lhs term
@@ -5015,7 +5021,7 @@ its attachment is ignored during proofs"))))
     (cond ((equal left right)
            (progn$
             #-acl2-loop-only
-            (when (consp *structured-rewrite-log*)
+            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
               (push (list :rewrite-step
                           :rune '(:if-same-branches nil)
                           :lhs (if-call test left right swapped-p)
@@ -5102,7 +5108,7 @@ its attachment is ignored during proofs"))))
             (t
              (progn$
               #-acl2-loop-only
-              (when (consp *structured-rewrite-log*)
+              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                 (push (list :rewrite-step
                             :rune (access recognizer-tuple recog-tuple :rune)
                             :lhs (mcons-term*
@@ -7074,47 +7080,66 @@ its attachment is ignored during proofs"))))
     #+acl2-loop-only
     call
     #-acl2-loop-only
-    (if (member-eq (caar args)
+    (let* ((inner-rewrite-p
+
+; When rewrite-entry dispatches a (rewrite ...) call with bkptr indicating
+; a definition body, rule RHS, lambda body, or abbreviation expansion, we
+; increment *structured-rewrite-depth* so that inner REWRITE-STEP events are
+; suppressed (they are folded into the outer step's RHS).
+
+            (and (eq (caar args) 'rewrite)
+                 (let ((bk (cadddr (car args))))
+                   (and (consp bk)
+                        (eq (car bk) 'quote)
+                        (member-eq (cadr bk)
+                                   '(rhs body lambda-body expansion))))))
+           (depth-call
+            (if inner-rewrite-p
+                `(progn (when (consp *structured-rewrite-log*)
+                          (incf *structured-rewrite-depth*))
+                        ,call)
+              call)))
+      (if (member-eq (caar args)
 
 ; We could omit relieve-hyp-synp in the list below, even though it too calls
 ; push-gframe, because relieve-hyp-synp is not called under rewrite-entry.  But
 ; we add it just in case that changes.
 
-                   '(rewrite rewrite-with-lemma add-terms-and-lemmas
-                             add-linear-lemma non-linear-arithmetic
-                             relieve-hyp-synp))
+                     '(rewrite rewrite-with-lemma add-terms-and-lemmas
+                               add-linear-lemma non-linear-arithmetic
+                               relieve-hyp-synp))
 
-; We restore *deep-gstack* to its value from before the call.  We really only
-; need to do that for dmr monitoring, so that there aren't stale frames on
-; *deep-gstack* when printing both the gstack and pstk (see dmr-string).  But
-; the prog1 and setq seem cheap so we clean up after ourselves in all cases.
+; We restore *deep-gstack* to its value from before the call.  We also
+; decrement *structured-rewrite-depth* if we incremented it above.
 
 ; WARNING: Gstack must be bound where rewrite-entry is called for the above
 ; values of (caar args).
 
-        `(cond ((or (f-get-global 'gstackp state)
-                    (f-get-global 'dmrp state))
-
-; We could call our-multiple-value-prog1 instead of multiple-value-prog1 in the
-; #+cltl2 case below, which would avoid the need for a separate #-cltl2 case.
-; However, for non-ANSI GCL we want to take advantage of the fact that all
-; functions in the rewrite nest return a first argument (the new step-limit)
-; that is a fixnum, but the compiler doesn't use that information when a prog1
-; call is used.  So we manage the non-ANSI case (including non-ANSI GCL)
-; ourselves.
-
-                #+cltl2
-                (multiple-value-prog1
-                 ,call
-                 (setq *deep-gstack* gstack))
-                #-cltl2
-                ,(let ((var (gensym)))
-                   `(let ((,var ,call))
-                      (declare (type #.*fixnum-type* ,var))
-                      (setq *deep-gstack* gstack)
-                      ,var)))
-               (t ,call))
-      call)))
+          `(cond ((or (f-get-global 'gstackp state)
+                      (f-get-global 'dmrp state))
+                  #+cltl2
+                  (multiple-value-prog1
+                   ,depth-call
+                   (setq *deep-gstack* gstack)
+                   ,@(when inner-rewrite-p
+                       '((when (consp *structured-rewrite-log*)
+                           (decf *structured-rewrite-depth*)))))
+                  #-cltl2
+                  ,(let ((var (gensym)))
+                     `(let ((,var ,depth-call))
+                        (declare (type #.*fixnum-type* ,var))
+                        (setq *deep-gstack* gstack)
+                        ,@(when inner-rewrite-p
+                            '((when (consp *structured-rewrite-log*)
+                                (decf *structured-rewrite-depth*))))
+                        ,var)))
+                 (t ,(if inner-rewrite-p
+                        `(multiple-value-prog1
+                          ,depth-call
+                          (when (consp *structured-rewrite-log*)
+                            (decf *structured-rewrite-depth*)))
+                      depth-call)))
+        depth-call))))
 
 (defconst *fake-rune-for-linear*
 
@@ -17004,7 +17029,7 @@ its attachment is ignored during proofs"))))
                                (t
                                 (progn$
                                  #-acl2-loop-only
-                                 (when (consp *structured-rewrite-log*)
+                                 (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                                    (push (list :rewrite-step
                                                :rune (list :executable-counterpart fn)
                                                :lhs (cons fn rewritten-args)
@@ -17218,7 +17243,7 @@ its attachment is ignored during proofs"))))
                                simplify-clause-pot-lst rcnst gstack ttree)
   (progn$
    #-acl2-loop-only
-   (when (consp *structured-rewrite-log*)
+   (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
      (push (list (cond (must-be-true :if-test-true)
                        (must-be-false :if-test-false)
                        (t :if-test-unknown))
@@ -17320,7 +17345,7 @@ its attachment is ignored during proofs"))))
 
        (progn$
         #-acl2-loop-only
-        (when (consp *structured-rewrite-log*)
+        (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
           (push (list (if (cadr test) :if-test-true :if-test-false)
                       :test test
                       :unrewritten-test unrewritten-test
@@ -19529,7 +19554,7 @@ its attachment is ignored during proofs"))))
                                 (brkpt2 t nil unify-subst gstack rewritten-rhs
                                         ttree rcnst ancestors state)
                                 #-acl2-loop-only
-                                (when (consp *structured-rewrite-log*)
+                                (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
@@ -19848,7 +19873,7 @@ its attachment is ignored during proofs"))))
                                           rewritten-body ttree1 rcnst ancestors
                                           state)
                                   #-acl2-loop-only
-                                  (when (consp *structured-rewrite-log*)
+                                  (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                                     (push (list :rewrite-step
                                                 :rune rune
                                                 :lhs term
@@ -19962,7 +19987,7 @@ its attachment is ignored during proofs"))))
                                                   rewritten-body ttree2 rcnst
                                                   ancestors state)
                                           #-acl2-loop-only
-                                          (when (consp *structured-rewrite-log*)
+                                          (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                                             (push (list :rewrite-step
                                                         :rune rune
                                                         :lhs term
@@ -19976,7 +20001,7 @@ its attachment is ignored during proofs"))))
                                 (brkpt2 t nil unify-subst gstack rewritten-body
                                         ttree1 rcnst ancestors state)
                                 #-acl2-loop-only
-                                (when (consp *structured-rewrite-log*)
+                                (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
