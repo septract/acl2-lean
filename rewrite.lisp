@@ -17313,40 +17313,62 @@ its attachment is ignored during proofs"))))
                    :simplify-clause-pot-lst false-pot-lst
                    :ttree (cons-tag-trees ts-ttree ttree)))
    (t (let ((ttree (normalize-rw-any-cache ttree)))
-        (sl-let
-         (rewritten-left ttree)
-         (if (and unrewritten-test
-                  (geneqv-refinementp 'iff geneqv wrld)
-                  (equal unrewritten-test left))
-             (mv step-limit *t* ttree)
-           (sl-let (rw-left ttree1)
-                   (rewrite-entry (rewrite left alist 2)
-                                  :type-alist true-type-alist
-                                  :simplify-clause-pot-lst true-pot-lst
-                                  :ttree (rw-cache-enter-context ttree))
-                   (mv step-limit
-                       rw-left
-                       (rw-cache-exit-context ttree ttree1))))
-         (sl-let (rewritten-right ttree1)
-                 (rewrite-entry (rewrite right alist 3)
-                                :type-alist false-type-alist
-                                :simplify-clause-pot-lst false-pot-lst
-                                :ttree (rw-cache-enter-context
-                                        ttree))
-                 (mv-let
-                   (rewritten-term ttree)
-                   (rewrite-if1 test
-                                rewritten-left rewritten-right
-                                swapped-p
-                                type-alist geneqv
-                                (access rewrite-constant rcnst
-                                        :current-enabled-structure)
-                                (ok-to-force rcnst)
-                                wrld
-                                (rw-cache-exit-context ttree ttree1))
-                   (rewrite-entry
-                    (rewrite-with-lemmas
-                     rewritten-term))))))))))
+
+; Suppress inner steps from both IF branch rewrites.  Increment depth
+; before branch rewriting, decrement after, and log the combined
+; IF → result as a single IF-simplification step.
+
+        (progn$
+         #-acl2-loop-only
+         (when (consp *structured-rewrite-log*) (incf *structured-rewrite-depth*))
+         #+acl2-loop-only nil
+         (sl-let
+          (rewritten-left ttree)
+          (if (and unrewritten-test
+                   (geneqv-refinementp 'iff geneqv wrld)
+                   (equal unrewritten-test left))
+              (mv step-limit *t* ttree)
+            (sl-let (rw-left ttree1)
+                    (rewrite-entry (rewrite left alist 2)
+                                   :type-alist true-type-alist
+                                   :simplify-clause-pot-lst true-pot-lst
+                                   :ttree (rw-cache-enter-context ttree))
+                    (mv step-limit
+                        rw-left
+                        (rw-cache-exit-context ttree ttree1))))
+          (sl-let (rewritten-right ttree1)
+                  (rewrite-entry (rewrite right alist 3)
+                                 :type-alist false-type-alist
+                                 :simplify-clause-pot-lst false-pot-lst
+                                 :ttree (rw-cache-enter-context
+                                         ttree))
+                  (mv-let
+                    (rewritten-term ttree)
+                    (rewrite-if1 test
+                                 rewritten-left rewritten-right
+                                 swapped-p
+                                 type-alist geneqv
+                                 (access rewrite-constant rcnst
+                                         :current-enabled-structure)
+                                 (ok-to-force rcnst)
+                                 wrld
+                                 (rw-cache-exit-context ttree ttree1))
+                    (progn$
+                     #-acl2-loop-only
+                     (when (consp *structured-rewrite-log*)
+                       (decf *structured-rewrite-depth*)
+                       (when (and (zerop *structured-rewrite-depth*)
+                                  (not (equal rewritten-term
+                                              (mcons-term* 'if test left right))))
+                         (push (list :rewrite-step
+                                     :rune '(:if-simplification nil)
+                                     :lhs (mcons-term* 'if test left right)
+                                     :rhs rewritten-term)
+                               (cdr *structured-rewrite-log*))))
+                     #+acl2-loop-only nil
+                     (rewrite-entry
+                      (rewrite-with-lemmas
+                       rewritten-term))))))))))))
 
 (defun rewrite-if (test unrewritten-test left right alist ; &extra formals
                         rdepth step-limit
