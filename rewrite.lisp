@@ -4860,9 +4860,20 @@ its attachment is ignored during proofs"))))
                                0))
                       (t (1-f bound)))))
                 (declare (type #.*fixnat-type* new-bound))
-                (rewrite-solidify-rec new-bound (fargn eterm 2) type-alist
-                                      obj geneqv ens wrld ttree
-                                      pot-lst pt)))
+                (progn$
+                 #-acl2-loop-only
+                 (when (and (consp *structured-rewrite-log*)
+                            (zerop *structured-rewrite-depth*)
+                            (not (equal term (fargn eterm 2))))
+                   (push (list :rewrite-step
+                               :rune '(:rewriting-equivalence nil)
+                               :lhs term
+                               :rhs (fargn eterm 2))
+                         (cdr *structured-rewrite-log*)))
+                 #+acl2-loop-only nil
+                 (rewrite-solidify-rec new-bound (fargn eterm 2) type-alist
+                                       obj geneqv ens wrld ttree
+                                       pot-lst pt))))
              (t (mv-let (ts ts-ttree)
 
 ; See the comment just after rewrite-solidify for some historical waffling.
