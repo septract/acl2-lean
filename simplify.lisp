@@ -5661,7 +5661,7 @@
              ; TRACE-LOG: type-set-reasoning (nil) in rewrite-atm
              #-acl2-loop-only
              (when (and (consp *structured-rewrite-log*)
-                        (zerop *structured-rewrite-depth*))
+                        t)
                (push (list :type-set-reasoning
                            :term atm
                            :result :nil
@@ -5675,7 +5675,7 @@
              ; TRACE-LOG: type-set-reasoning (true) in rewrite-atm
              #-acl2-loop-only
              (when (and (consp *structured-rewrite-log*)
-                        (zerop *structured-rewrite-depth*))
+                        t)
                (push (list :type-set-reasoning
                            :term atm
                            :result :true
@@ -5808,7 +5808,7 @@
                                 ; TRACE-LOG: rewrite-step (:clause-context-resolution) in rewrite-atm
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*)
-                                           (zerop *structured-rewrite-depth*)
+                                           t
                                            (not (equal ans1 atm)))
                                   (push (list :rewrite-step
                                               :rune '(:clause-context-resolution nil)

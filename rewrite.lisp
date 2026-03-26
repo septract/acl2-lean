@@ -1551,7 +1551,7 @@ its attachment is ignored during proofs"))))
              (progn$
               ; TRACE-LOG: rewrite-step (:if-simplification) in scons-term
               #-acl2-loop-only
-              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*)
+              (when (and (consp *structured-rewrite-log*) t
                          (not (equal (cons fn args) result)))
                 (push (list :rewrite-step
                             :rune '(:if-simplification nil)
@@ -1600,7 +1600,7 @@ its attachment is ignored during proofs"))))
               (progn$
                ; TRACE-LOG: rewrite-step (:executable-counterpart) in scons-term
                #-acl2-loop-only
-               (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+               (when (and (consp *structured-rewrite-log*) t)
                  (push (list :rewrite-step
                              :rune (list :executable-counterpart fn)
                              :lhs (cons fn args)
@@ -1616,7 +1616,7 @@ its attachment is ignored during proofs"))))
     (progn$
      ; TRACE-LOG: rewrite-step (:equal-self) in scons-term
      #-acl2-loop-only
-     (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+     (when (and (consp *structured-rewrite-log*) t)
        (push (list :rewrite-step
                    :rune '(:equal-self nil)
                    :lhs (cons fn args)
@@ -4763,7 +4763,7 @@ its attachment is ignored during proofs"))))
                       (progn$
                        #-acl2-loop-only
                        (when (and (consp *structured-rewrite-log*)
-                                  (zerop *structured-rewrite-depth*))
+                                  t)
                          (push (list :rewrite-step
                                      :rune '(:iff-implies-t nil)
                                      :lhs term
@@ -4879,7 +4879,7 @@ its attachment is ignored during proofs"))))
                  ; TRACE-LOG: rewrite-step (:rewriting-equivalence) in rewrite-solidify-rec
                  #-acl2-loop-only
                  (when (and (consp *structured-rewrite-log*)
-                            (zerop *structured-rewrite-depth*)
+                            t
                             (not (equal term (fargn eterm 2))))
                    (push (list :rewrite-step
                                :rune '(:rewriting-equivalence nil)
@@ -4907,7 +4907,7 @@ its attachment is ignored during proofs"))))
                              ; TRACE-LOG: rewrite-step (:type-alist) in rewrite-solidify-rec
                              #-acl2-loop-only
                              (when (and (consp *structured-rewrite-log*)
-                                        (zerop *structured-rewrite-depth*)
+                                        t
                                         (not (equal solidified-term term)))
                                (push (list :rewrite-step
                                            :rune '(:type-alist nil)
@@ -4993,7 +4993,7 @@ its attachment is ignored during proofs"))))
            (progn$
             ; TRACE-LOG: rewrite-step (:type-alist) in rewrite-if11 [nil case]
             #-acl2-loop-only
-            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+            (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
                           :rune '(:type-alist nil)
                           :lhs term
@@ -5006,7 +5006,7 @@ its attachment is ignored during proofs"))))
            (progn$
             ; TRACE-LOG: rewrite-step (:type-alist) in rewrite-if11 [disjoint case]
             #-acl2-loop-only
-            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+            (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
                           :rune '(:type-alist nil)
                           :lhs term
@@ -5053,7 +5053,7 @@ its attachment is ignored during proofs"))))
            (progn$
             ; TRACE-LOG: rewrite-step (:if-same-branches) in rewrite-if1
             #-acl2-loop-only
-            (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+            (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
                           :rune '(:if-same-branches nil)
                           :lhs (if-call test left right swapped-p)
@@ -5068,7 +5068,7 @@ its attachment is ignored during proofs"))))
               ; TRACE-LOG: rewrite-step (:if-simplification) in rewrite-if1 [test=left]
               #-acl2-loop-only
               (when (and (consp *structured-rewrite-log*)
-                         (zerop *structured-rewrite-depth*))
+                         t)
                 (push (list :rewrite-step
                             :rune '(:if-simplification nil)
                             :lhs (if-call test left right swapped-p)
@@ -5084,7 +5084,7 @@ its attachment is ignored during proofs"))))
                        ; TRACE-LOG: rewrite-step (:if-simplification) in rewrite-if1 [boolean]
                        #-acl2-loop-only
                        (when (and (consp *structured-rewrite-log*)
-                                  (zerop *structured-rewrite-depth*))
+                                  t)
                          (push (list :rewrite-step
                                      :rune '(:if-simplification nil)
                                      :lhs (if-call test left right swapped-p)
@@ -5104,7 +5104,7 @@ its attachment is ignored during proofs"))))
             ; TRACE-LOG: rewrite-step (:if-simplification) in rewrite-if1 [negation]
             #-acl2-loop-only
             (when (and (consp *structured-rewrite-log*)
-                       (zerop *structured-rewrite-depth*))
+                       t)
               (push (list :rewrite-step
                           :rune '(:if-simplification nil)
                           :lhs (if-call test left right swapped-p)
@@ -5174,7 +5174,7 @@ its attachment is ignored during proofs"))))
              (progn$
               ; TRACE-LOG: rewrite-step (recognizer) in rewrite-recognizer
               #-acl2-loop-only
-              (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+              (when (and (consp *structured-rewrite-log*) t)
                 (push (list :rewrite-step
                             :rune (access recognizer-tuple recog-tuple :rune)
                             :lhs (mcons-term*
@@ -5207,7 +5207,7 @@ its attachment is ignored during proofs"))))
       ; TRACE-LOG: rewrite-step (recognizer) in rewrite-recognizer [false case]
       (progn$
        #-acl2-loop-only
-       (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+       (when (and (consp *structured-rewrite-log*) t)
          (push (list :rewrite-step
                      :rune (access recognizer-tuple recog-tuple :rune)
                      :lhs (mcons-term*
@@ -7163,8 +7163,9 @@ its attachment is ignored during proofs"))))
 
 ; When rewrite-entry dispatches a (rewrite ...) call with bkptr indicating
 ; a definition body, rule RHS, lambda body, or abbreviation expansion, we
-; increment *structured-rewrite-depth* so that inner REWRITE-STEP events are
-; suppressed (they are folded into the outer step's RHS).
+; emit :BEGIN-INNER-REWRITE / :END-INNER-REWRITE boundary markers so the
+; Lean parser can build a proof tree.  We also increment/decrement
+; *structured-rewrite-depth* (still used by some logging sites).
 
             (and (eq (caar args) 'rewrite)
                  (let ((bk (cadddr (car args))))
@@ -7172,10 +7173,16 @@ its attachment is ignored during proofs"))))
                         (eq (car bk) 'quote)
                         (member-eq (cadr bk)
                                    '(rhs body lambda-body expansion))))))
+           (inner-rewrite-kind
+            (and inner-rewrite-p
+                 (cadr (cadddr (car args)))))
            (depth-call
             (if inner-rewrite-p
                 `(progn (when (consp *structured-rewrite-log*)
-                          (incf *structured-rewrite-depth*))
+                          (incf *structured-rewrite-depth*)
+                          (push (list :begin-inner-rewrite
+                                      :kind ',inner-rewrite-kind)
+                                (cdr *structured-rewrite-log*)))
                         ,call)
               call)))
       (if (member-eq (caar args)
@@ -7201,22 +7208,31 @@ its attachment is ignored during proofs"))))
                    ,depth-call
                    (setq *deep-gstack* gstack)
                    ,@(when inner-rewrite-p
-                       '((when (consp *structured-rewrite-log*)
-                           (decf *structured-rewrite-depth*)))))
+                       `((when (consp *structured-rewrite-log*)
+                           (decf *structured-rewrite-depth*)
+                           (push (list :end-inner-rewrite
+                                       :kind ',inner-rewrite-kind)
+                                 (cdr *structured-rewrite-log*))))))
                   #-cltl2
                   ,(let ((var (gensym)))
                      `(let ((,var ,depth-call))
                         (declare (type #.*fixnum-type* ,var))
                         (setq *deep-gstack* gstack)
                         ,@(when inner-rewrite-p
-                            '((when (consp *structured-rewrite-log*)
-                                (decf *structured-rewrite-depth*))))
+                            `((when (consp *structured-rewrite-log*)
+                                (decf *structured-rewrite-depth*)
+                                (push (list :end-inner-rewrite
+                                            :kind ',inner-rewrite-kind)
+                                      (cdr *structured-rewrite-log*)))))
                         ,var)))
                  (t ,(if inner-rewrite-p
                         `(multiple-value-prog1
                           ,depth-call
                           (when (consp *structured-rewrite-log*)
-                            (decf *structured-rewrite-depth*)))
+                            (decf *structured-rewrite-depth*)
+                            (push (list :end-inner-rewrite
+                                        :kind ',inner-rewrite-kind)
+                                  (cdr *structured-rewrite-log*))))
                       depth-call)))
         depth-call))))
 
@@ -17109,7 +17125,7 @@ its attachment is ignored during proofs"))))
                                 (progn$
                                  ; TRACE-LOG: rewrite-step (:executable-counterpart) in rewrite
                                  #-acl2-loop-only
-                                 (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+                                 (when (and (consp *structured-rewrite-log*) t)
                                    (push (list :rewrite-step
                                                :rune (list :executable-counterpart fn)
                                                :lhs (cons fn rewritten-args)
@@ -17324,7 +17340,7 @@ its attachment is ignored during proofs"))))
   (progn$
    ; TRACE-LOG: if-test event in rewrite-if-finish
    #-acl2-loop-only
-   (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+   (when (and (consp *structured-rewrite-log*) t)
      (push (list (cond (must-be-true :if-test-true)
                        (must-be-false :if-test-false)
                        (t :if-test-unknown))
@@ -17357,9 +17373,14 @@ its attachment is ignored during proofs"))))
 ; IF → result as a single IF-simplification step.
 
         (progn$
-         ; TRACE-LOG: if-simplification (depth suppress) in rewrite-if-finish
+         ; TRACE-LOG: begin-if-rewrite in rewrite-if-finish [unknown case]
          #-acl2-loop-only
-         (when (consp *structured-rewrite-log*) (incf *structured-rewrite-depth*))
+         (when (consp *structured-rewrite-log*)
+           (incf *structured-rewrite-depth*)
+           (push (list :begin-if-rewrite
+                       :test test
+                       :unrewritten-test unrewritten-test)
+                 (cdr *structured-rewrite-log*)))
          #+acl2-loop-only nil
          (sl-let
           (rewritten-left ttree)
@@ -17393,13 +17414,16 @@ its attachment is ignored during proofs"))))
                                  wrld
                                  (rw-cache-exit-context ttree ttree1))
                     (progn$
-                     ; TRACE-LOG: rewrite-step (:if-simplification) in rewrite-if-finish [combined IF result]
+                     ; TRACE-LOG: end-if-rewrite + rewrite-step (:if-simplification) in rewrite-if-finish
                      #-acl2-loop-only
                      (when (consp *structured-rewrite-log*)
                        (decf *structured-rewrite-depth*)
-                       (when (and (zerop *structured-rewrite-depth*)
-                                  (not (equal rewritten-term
-                                              (mcons-term* 'if test left right))))
+                       (push (list :end-if-rewrite
+                                   :test test
+                                   :result rewritten-term)
+                             (cdr *structured-rewrite-log*))
+                       (when (not (equal rewritten-term
+                                         (mcons-term* 'if test left right)))
                          (push (list :rewrite-step
                                      :rune '(:if-simplification nil)
                                      :lhs (mcons-term* 'if test left right)
@@ -17451,7 +17475,7 @@ its attachment is ignored during proofs"))))
        (progn$
         ; TRACE-LOG: if-test + rewrite-step (:if-simplification) in rewrite-if [constant test]
         #-acl2-loop-only
-        (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+        (when (and (consp *structured-rewrite-log*) t)
           (push (list (if (cadr test) :if-test-true :if-test-false)
                       :test test
                       :unrewritten-test unrewritten-test
@@ -17681,7 +17705,7 @@ its attachment is ignored during proofs"))))
      (progn$
       #-acl2-loop-only
       (when (and (consp *structured-rewrite-log*)
-                 (zerop *structured-rewrite-depth*))
+                 t)
         (push (list :rewrite-step
                     :rune '(:equal-self nil)
                     :lhs (fcons-term* 'equal lhs rhs)
@@ -17695,7 +17719,7 @@ its attachment is ignored during proofs"))))
      (progn$
       #-acl2-loop-only
       (when (and (consp *structured-rewrite-log*)
-                 (zerop *structured-rewrite-depth*))
+                 t)
         (push (list :rewrite-step
                     :rune '(:equal-constant nil)
                     :lhs (fcons-term* 'equal lhs rhs)
@@ -17737,7 +17761,7 @@ its attachment is ignored during proofs"))))
                 ; TRACE-LOG: rewrite-step (:type-set-equality) in rewrite-equal [true]
                 #-acl2-loop-only
                 (when (and (consp *structured-rewrite-log*)
-                           (zerop *structured-rewrite-depth*))
+                           t)
                   (push (list :rewrite-step
                               :rune '(:type-set-equality nil)
                               :lhs (fcons-term* 'equal lhs rhs)
@@ -17750,7 +17774,7 @@ its attachment is ignored during proofs"))))
                 ; TRACE-LOG: rewrite-step (:type-set-equality) in rewrite-equal [nil]
                 #-acl2-loop-only
                 (when (and (consp *structured-rewrite-log*)
-                           (zerop *structured-rewrite-depth*))
+                           t)
                   (push (list :rewrite-step
                               :rune '(:type-set-equality nil)
                               :lhs (fcons-term* 'equal lhs rhs)
@@ -19705,7 +19729,7 @@ its attachment is ignored during proofs"))))
                                         ttree rcnst ancestors state)
                                 ; TRACE-LOG: rewrite-step (lemma) in rewrite-with-lemma
                                 #-acl2-loop-only
-                                (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+                                (when (and (consp *structured-rewrite-log*) t)
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
@@ -20025,7 +20049,7 @@ its attachment is ignored during proofs"))))
                                           state)
                                   ; TRACE-LOG: rewrite-step (definition) in rewrite-fncall [non-recursive]
                                   #-acl2-loop-only
-                                  (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+                                  (when (and (consp *structured-rewrite-log*) t)
                                     (push (list :rewrite-step
                                                 :rune rune
                                                 :lhs term
@@ -20140,7 +20164,7 @@ its attachment is ignored during proofs"))))
                                                   ancestors state)
                                           ; TRACE-LOG: rewrite-step (definition) in rewrite-fncall [recursive re-rewrite]
                                           #-acl2-loop-only
-                                          (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+                                          (when (and (consp *structured-rewrite-log*) t)
                                             (push (list :rewrite-step
                                                         :rune rune
                                                         :lhs term
@@ -20155,7 +20179,7 @@ its attachment is ignored during proofs"))))
                                         ttree1 rcnst ancestors state)
                                 ; TRACE-LOG: rewrite-step (definition) in rewrite-fncall [abbreviation]
                                 #-acl2-loop-only
-                                (when (and (consp *structured-rewrite-log*) (zerop *structured-rewrite-depth*))
+                                (when (and (consp *structured-rewrite-log*) t)
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
