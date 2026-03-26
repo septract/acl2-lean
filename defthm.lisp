@@ -12186,8 +12186,14 @@
                    (ignore
                     (if (eq (f-get-global 'raw-proof-format state) :structured)
                         (pprogn
-                         (fms "(:DEFTHM ~x0)~%"
-                              (list (cons #\0 name))
+                         (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2)~%"
+                              (list (cons #\0 name)
+                                    (cons #\1 (untranslate tterm0 t wrld))
+                                    (cons #\2 (if (or (eq ld-skip-proofsp 'include-book)
+                                                      (eq ld-skip-proofsp
+                                                          'include-book-with-locals))
+                                                  :include-book
+                                                :local)))
                               (proofs-co state) state nil)
                          (value nil))
                       (value nil)))
