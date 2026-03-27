@@ -7201,9 +7201,11 @@ its attachment is ignored during proofs"))))
                  (cadr (cadddr (car args)))))
            (depth-call
             (if inner-rewrite-p
+                ; TRACE-LOG[rewrite-entry/begin-inner]: begin-inner-rewrite in rewrite-entry macro
                 `(progn (when (consp *structured-rewrite-log*)
                           (incf *structured-rewrite-depth*)
                           (push (list :begin-inner-rewrite
+                                      :origin 'rewrite-entry/begin-inner
                                       :kind ',inner-rewrite-kind)
                                 (cdr *structured-rewrite-log*)))
                         ,call)
@@ -7230,10 +7232,12 @@ its attachment is ignored during proofs"))))
                   (multiple-value-prog1
                    ,depth-call
                    (setq *deep-gstack* gstack)
+                   ; TRACE-LOG[rewrite-entry/end-inner-cltl2]: end-inner-rewrite in rewrite-entry macro (cltl2 gstackp path)
                    ,@(when inner-rewrite-p
                        `((when (consp *structured-rewrite-log*)
                            (decf *structured-rewrite-depth*)
                            (push (list :end-inner-rewrite
+                                       :origin 'rewrite-entry/end-inner-cltl2
                                        :kind ',inner-rewrite-kind)
                                  (cdr *structured-rewrite-log*))))))
                   #-cltl2
@@ -7241,19 +7245,23 @@ its attachment is ignored during proofs"))))
                      `(let ((,var ,depth-call))
                         (declare (type #.*fixnum-type* ,var))
                         (setq *deep-gstack* gstack)
+                        ; TRACE-LOG[rewrite-entry/end-inner-noncltl2]: end-inner-rewrite in rewrite-entry macro (non-cltl2 path)
                         ,@(when inner-rewrite-p
                             `((when (consp *structured-rewrite-log*)
                                 (decf *structured-rewrite-depth*)
                                 (push (list :end-inner-rewrite
+                                            :origin 'rewrite-entry/end-inner-noncltl2
                                             :kind ',inner-rewrite-kind)
                                       (cdr *structured-rewrite-log*)))))
                         ,var)))
                  (t ,(if inner-rewrite-p
                         `(multiple-value-prog1
                           ,depth-call
+                          ; TRACE-LOG[rewrite-entry/end-inner-default]: end-inner-rewrite in rewrite-entry macro (default path)
                           (when (consp *structured-rewrite-log*)
                             (decf *structured-rewrite-depth*)
                             (push (list :end-inner-rewrite
+                                        :origin 'rewrite-entry/end-inner-default
                                         :kind ',inner-rewrite-kind)
                                   (cdr *structured-rewrite-log*))))
                       depth-call)))
@@ -17362,12 +17370,13 @@ its attachment is ignored during proofs"))))
                                fnstack ancestors backchain-limit
                                simplify-clause-pot-lst rcnst gstack ttree)
   (progn$
-   ; TRACE-LOG: if-test event in rewrite-if-finish
+   ; TRACE-LOG[if-finish/if-test]: if-test event in rewrite-if-finish
    #-acl2-loop-only
    (when (and (consp *structured-rewrite-log*) t)
      (push (list (cond (must-be-true :if-test-true)
                        (must-be-false :if-test-false)
                        (t :if-test-unknown))
+                 :origin 'if-finish/if-test
                  :test test
                  :unrewritten-test unrewritten-test
                  :justification (and (or must-be-true must-be-false)
@@ -17397,11 +17406,12 @@ its attachment is ignored during proofs"))))
 ; IF → result as a single IF-simplification step.
 
         (progn$
-         ; TRACE-LOG: begin-if-rewrite in rewrite-if-finish [unknown case]
+         ; TRACE-LOG[if-finish/begin-if]: begin-if-rewrite in rewrite-if-finish [unknown case]
          #-acl2-loop-only
          (when (consp *structured-rewrite-log*)
            (incf *structured-rewrite-depth*)
            (push (list :begin-if-rewrite
+                       :origin 'if-finish/begin-if
                        :test test
                        :unrewritten-test unrewritten-test)
                  (cdr *structured-rewrite-log*)))
@@ -17443,6 +17453,7 @@ its attachment is ignored during proofs"))))
                      (when (consp *structured-rewrite-log*)
                        (decf *structured-rewrite-depth*)
                        (push (list :end-if-rewrite
+                                   :origin 'if-finish/end-if
                                    :test test
                                    :result rewritten-term)
                              (cdr *structured-rewrite-log*))
@@ -17498,14 +17509,16 @@ its attachment is ignored during proofs"))))
 ; avoid the assume-true-false below.
 
        (progn$
-        ; TRACE-LOG[rewrite-if/constant-test]: if-test + rewrite-step (:if-simplification) in rewrite-if [constant test]
         #-acl2-loop-only
         (when (and (consp *structured-rewrite-log*) t)
+          ; TRACE-LOG[rewrite-if/constant-if-test]: if-test in rewrite-if [constant test]
           (push (list (if (cadr test) :if-test-true :if-test-false)
+                      :origin 'rewrite-if/constant-if-test
                       :test test
                       :unrewritten-test unrewritten-test
                       :justification :rewritten-to-constant)
                 (cdr *structured-rewrite-log*))
+          ; TRACE-LOG[rewrite-if/constant-test]: rewrite-step (:if-simplification) in rewrite-if [constant test]
           (push (list :rewrite-step
                       :rune '(:if-simplification nil)
                       :origin 'rewrite-if/constant-test

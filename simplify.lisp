@@ -5658,11 +5658,12 @@
 ; So we report this reduction.
 
             (progn$
-             ; TRACE-LOG: type-set-reasoning (nil) in rewrite-atm
+             ; TRACE-LOG[atm/type-set-nil]: type-set-reasoning (nil) in rewrite-atm
              #-acl2-loop-only
              (when (and (consp *structured-rewrite-log*)
                         t)
                (push (list :type-set-reasoning
+                           :origin 'atm/type-set-nil
                            :term atm
                            :result :nil
                            :not-flg not-flg
@@ -5672,11 +5673,12 @@
              (mv step-limit *nil* knownp-ttree nil)))
            ((and knownp (not not-flg) (not nilp))
             (progn$
-             ; TRACE-LOG: type-set-reasoning (true) in rewrite-atm
+             ; TRACE-LOG[atm/type-set-true]: type-set-reasoning (true) in rewrite-atm
              #-acl2-loop-only
              (when (and (consp *structured-rewrite-log*)
                         t)
                (push (list :type-set-reasoning
+                           :origin 'atm/type-set-true
                            :term atm
                            :result :true
                            :not-flg not-flg
@@ -6443,10 +6445,11 @@
     (cond
      (lit-position
       (prog2$
-       ; TRACE-LOG: branch-substitution in remove-trivial-equivalences-rec
+       ; TRACE-LOG[trivial-equiv/branch-subst]: branch-substitution in remove-trivial-equivalences-rec
        #-acl2-loop-only
        (when (consp *structured-rewrite-log*)
          (push (list :branch-substitution
+                     :origin 'trivial-equiv/branch-subst
                      :equivalence equiv
                      :lhs lhs
                      :rhs rhs)
@@ -7382,10 +7385,11 @@
      (not-flg atm)
      (strip-not (car tail))
      (progn$
-      ; TRACE-LOG: begin-literal in rewrite-clause
+      ; TRACE-LOG[clause/begin-literal]: begin-literal in rewrite-clause
       #-acl2-loop-only
       (when (consp *structured-rewrite-log*)
         (push (list :begin-literal
+                    :origin 'clause/begin-literal
                     :index bkptr
                     :literal (car tail)
                     :not-flg not-flg)
@@ -7479,11 +7483,12 @@
                            val))
                     (branches
                      (prog2$
-                      ; TRACE-LOG: rewritten-literal in rewrite-clause
+                      ; TRACE-LOG[clause/rewritten-literal]: rewritten-literal in rewrite-clause
                       #-acl2-loop-only
                       (when (and (consp *structured-rewrite-log*)
                                  (not (equal val (car tail))))
                         (push (list :rewritten-literal
+                                    :origin 'clause/rewritten-literal
                                     :original (car tail)
                                     :result val)
                               (cdr *structured-rewrite-log*)))
@@ -7498,16 +7503,19 @@
                                  sr-limit))))
                     (branches
                      (prog2$
-                      ; TRACE-LOG: end-literal + case-split in rewrite-clause
                       #-acl2-loop-only
                       (when (consp *structured-rewrite-log*)
+                        ; TRACE-LOG[clause/end-literal]: end-literal in rewrite-clause
                         (push (list :end-literal
+                                    :origin 'clause/end-literal
                                     :index bkptr
                                     :result val
                                     :branches (length branches))
                               (cdr *structured-rewrite-log*))
                         (when (> (length branches) 1)
+                          ; TRACE-LOG[clause/case-split]: case-split in rewrite-clause
                           (push (list :case-split
+                                      :origin 'clause/case-split
                                       :literal-index bkptr
                                       :num-branches (length branches))
                                 (cdr *structured-rewrite-log*))))
@@ -7762,10 +7770,11 @@
                             :current-enabled-structure)
                     wrld state ttree1)
                    (prog2$
-                    ; TRACE-LOG: begin-branch + context-subst in rewrite-clause-lst
                     #-acl2-loop-only
                     (when (consp *structured-rewrite-log*)
+                      ; TRACE-LOG[clause-lst/begin-branch]: begin-branch in rewrite-clause-lst
                       (push (list :begin-branch
+                                  :origin 'clause-lst/begin-branch
                                   :segment (car segs))
                             (cdr *structured-rewrite-log*))
 
@@ -7786,19 +7795,25 @@
                                  (lhs (fargn inner 1))
                                  (rhs (fargn inner 2)))
                             (cond ((and (variablep lhs) (variablep rhs))
+                                   ; TRACE-LOG[clause-lst/context-subst-both]: context-subst (both vars) in rewrite-clause-lst
                                    (push (list :context-subst
+                                               :origin 'clause-lst/context-subst-both
                                                :variable rhs
                                                :value lhs
                                                :justification inner)
                                          (cdr *structured-rewrite-log*)))
                                   ((variablep lhs)
+                                   ; TRACE-LOG[clause-lst/context-subst-lhs]: context-subst (lhs var) in rewrite-clause-lst
                                    (push (list :context-subst
+                                               :origin 'clause-lst/context-subst-lhs
                                                :variable lhs
                                                :value rhs
                                                :justification inner)
                                          (cdr *structured-rewrite-log*)))
                                   ((variablep rhs)
+                                   ; TRACE-LOG[clause-lst/context-subst-rhs]: context-subst (rhs var) in rewrite-clause-lst
                                    (push (list :context-subst
+                                               :origin 'clause-lst/context-subst-rhs
                                                :variable rhs
                                                :value lhs
                                                :justification inner)
@@ -7823,10 +7838,11 @@
                                            state
                                            step-limit)
                             (prog2$
-                             ; TRACE-LOG: end-branch in rewrite-clause-lst
+                             ; TRACE-LOG[clause-lst/end-branch]: end-branch in rewrite-clause-lst
                              #-acl2-loop-only
                              (when (consp *structured-rewrite-log*)
-                               (push (list :end-branch)
+                               (push (list :end-branch
+                                           :origin 'clause-lst/end-branch)
                                      (cdr *structured-rewrite-log*)))
                              #+acl2-loop-only nil
                              (mv step-limit
