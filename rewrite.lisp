@@ -4877,14 +4877,18 @@ its attachment is ignored during proofs"))))
                 (declare (type #.*fixnat-type* new-bound))
                 (progn$
                  ; TRACE-LOG: rewrite-step (:rewriting-equivalence) in rewrite-solidify-rec
+                 ; Include :parents from the ttree and the equiv-term so the
+                 ; Lean checker can identify which clause literal (e.g. the
+                 ; induction hypothesis) justifies this equivalence.
                  #-acl2-loop-only
                  (when (and (consp *structured-rewrite-log*)
-                            t
                             (not (equal term (fargn eterm 2))))
                    (push (list :rewrite-step
                                :rune '(:rewriting-equivalence nil)
                                :lhs term
-                               :rhs (fargn eterm 2))
+                               :rhs (fargn eterm 2)
+                               :equiv-term eterm
+                               :parents (tagged-objects 'pt ttree))
                          (cdr *structured-rewrite-log*)))
                  #+acl2-loop-only nil
                  (rewrite-solidify-rec new-bound (fargn eterm 2) type-alist
@@ -4905,14 +4909,18 @@ its attachment is ignored during proofs"))))
                                        obj geneqv wrld ttree)
                             (progn$
                              ; TRACE-LOG: rewrite-step (:type-alist) in rewrite-solidify-rec
+                             ; Include :parents from the type-set ttree so the
+                             ; Lean checker can identify which clause literals
+                             ; justify this type-based simplification.
                              #-acl2-loop-only
                              (when (and (consp *structured-rewrite-log*)
-                                        t
                                         (not (equal solidified-term term)))
                                (push (list :rewrite-step
                                            :rune '(:type-alist nil)
                                            :lhs term
-                                           :rhs solidified-term)
+                                           :rhs solidified-term
+                                           :parents (tagged-objects
+                                                     'pt solidified-ttree))
                                      (cdr *structured-rewrite-log*)))
                              #+acl2-loop-only nil
                              (mv solidified-term
@@ -20005,6 +20013,16 @@ its attachment is ignored during proofs"))))
                         rune
                         ((the #.*fixnum-type* step-limit) term-out ttree)
                         t ; considered a success unless the parent with-acc-p fails
+; Save the structured rewrite log position before body rewriting.
+; If the expansion is rejected (too-many-ifs or rewrite-fncallp failure),
+; we roll back the log to discard the speculative inner events.  Only
+; committed (successful) expansion steps appear in the proof trace.
+
+                        (let #-acl2-loop-only
+                             ((saved-log-tail
+                               (when (consp *structured-rewrite-log*)
+                                 (cdr *structured-rewrite-log*))))
+                             #+acl2-loop-only ()
                         (sl-let
                          (rewritten-body new-ttree1)
                          (rewrite-entry (rewrite body unify-subst 'body)
@@ -20029,10 +20047,17 @@ its attachment is ignored during proofs"))))
                               ((and (not (recursive-fn-on-fnstackp fnstack))
                                     (too-many-ifs-post-rewrite args
                                                                rewritten-body))
-                               (prog2$
+                               (progn$
                                 (brkpt2 nil 'too-many-ifs-post-rewrite
                                         unify-subst gstack rewritten-body
                                         ttree1 rcnst ancestors state)
+                                ; Roll back speculative inner events
+                                #-acl2-loop-only
+                                (when (and (consp *structured-rewrite-log*)
+                                           saved-log-tail)
+                                  (setf (cdr *structured-rewrite-log*)
+                                        saved-log-tail))
+                                #+acl2-loop-only nil
                                 (prepend-step-limit
                                  2
                                  (rewrite-solidify
@@ -20191,10 +20216,17 @@ its attachment is ignored during proofs"))))
                                                  ancestors
                                                  body
                                                  rewritten-body))))))
-                            (t (prog2$
+                            (t (progn$
                                 (brkpt2 nil 'rewrite-fncallp unify-subst gstack
                                         rewritten-body ttree1 rcnst ancestors
                                         state)
+                                ; Roll back speculative inner events
+                                #-acl2-loop-only
+                                (when (and (consp *structured-rewrite-log*)
+                                           saved-log-tail)
+                                  (setf (cdr *structured-rewrite-log*)
+                                        saved-log-tail))
+                                #+acl2-loop-only nil
                                 (prepend-step-limit
                                  2
                                  (rewrite-solidify
@@ -20205,7 +20237,7 @@ its attachment is ignored during proofs"))))
                                   (accumulate-rw-cache t ttree1 ttree)
                                   simplify-clause-pot-lst
                                   (access rewrite-constant rcnst
-                                          :pt))))))))
+                                          :pt)))))))))
                         :conc
                         (access rewrite-rule rule :hyps)))
                       (t (prog2$
