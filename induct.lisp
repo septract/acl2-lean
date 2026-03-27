@@ -6815,7 +6815,7 @@
 
 ; Structured output mode: emit induction scheme as s-expression.
 
-                            (fms "(:INDUCTION :TERM ~x0 :SUBGOAL-COUNT ~x1 :SCHEME ~x2)~%"
+                            (fms "(:INDUCTION :TERM ~x0 :SUBGOALS ~x1 :SCHEME ~x2)~%"
                                  (list (cons #\0 (access candidate
                                                          winning-candidate
                                                          :induction-term))

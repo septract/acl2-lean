@@ -2677,7 +2677,7 @@
             (details
              (cond
               (elim-seq
-               (msg " :ELIM-SEQUENCE ~x0 :ELIM-VARS ~x1"
+               (msg " :ELIMSEQUENCE ~x0 :ELIMVARS ~x1"
                     elim-seq elim-vars))
               (fert-bullet
                (msg " :FERTILIZE (:BULLET ~x0 :TARGET ~x1 :EQUIV ~x2)"
@@ -2689,16 +2689,16 @@
                (msg " :GENERALIZE (:TERMS ~x0 :VARS ~x1)"
                     gen-terms gen-vars))
               (t ""))))
-       (fms "(:STEP :CLAUSE-ID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6~@7)~%"
+       (fms "(:STEP :CLAUSEID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6~@7)~%"
             (list (cons #\0 cl-id-str)
                   (cons #\1 processor)
                   (cons #\2 result)
                   (cons #\3 runes)
                   (cons #\4 (if input-clause
-                                (msg " :INPUT-CLAUSE ~x0" input-clause)
+                                (msg " :INPUTCLAUSE ~x0" input-clause)
                               ""))
                   (cons #\5 (if clauses
-                                (msg " :NEW-CLAUSES ~x0" clauses)
+                                (msg " :NEWCLAUSES ~x0" clauses)
                               ""))
                   (cons #\6 (if rewrites
                                 (msg " :REWRITES ~x0" rewrites)
