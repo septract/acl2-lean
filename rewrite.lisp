@@ -4920,7 +4920,9 @@ its attachment is ignored during proofs"))))
                                            :lhs term
                                            :rhs solidified-term
                                            :parents (tagged-objects
-                                                     'pt solidified-ttree))
+                                                     'pt solidified-ttree)
+                                           :runes (all-runes-in-ttree
+                                                   solidified-ttree nil))
                                      (cdr *structured-rewrite-log*)))
                              #+acl2-loop-only nil
                              (mv solidified-term
@@ -19741,7 +19743,11 @@ its attachment is ignored during proofs"))))
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
-                                              :rhs rewritten-rhs)
+                                              :rhs rewritten-rhs
+                                              :runes (all-runes-in-ttree
+                                                      ttree nil)
+                                              :parents (tagged-objects
+                                                        'pt ttree))
                                         (cdr *structured-rewrite-log*)))
                                 (mv step-limit t rewritten-rhs
                                     (push-lemma
@@ -20078,7 +20084,8 @@ its attachment is ignored during proofs"))))
                                     (push (list :rewrite-step
                                                 :rune rune
                                                 :lhs term
-                                                :rhs rewritten-body)
+                                                :rhs rewritten-body
+                                                :subst unify-subst)
                                           (cdr *structured-rewrite-log*)))
                                   (mv step-limit
                                       rewritten-body
@@ -20193,7 +20200,8 @@ its attachment is ignored during proofs"))))
                                             (push (list :rewrite-step
                                                         :rune rune
                                                         :lhs term
-                                                        :rhs rewritten-body)
+                                                        :rhs rewritten-body
+                                                        :subst unify-subst)
                                                   (cdr *structured-rewrite-log*)))
                                           (mv step-limit
                                               rewritten-body
@@ -20208,7 +20216,8 @@ its attachment is ignored during proofs"))))
                                   (push (list :rewrite-step
                                               :rune rune
                                               :lhs term
-                                              :rhs rewritten-body)
+                                              :rhs rewritten-body
+                                              :subst unify-subst)
                                         (cdr *structured-rewrite-log*)))
                                 (mv step-limit
                                     rewritten-body
