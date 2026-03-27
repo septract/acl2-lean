@@ -12195,9 +12195,28 @@
 ; The only reason this function exists is so that the defmacro for
 ; defun is in the form expected by primordial-event-defmacros.
 
-  (defuns-fn (list def) state
-    (or event-form (cons 'defun def))
-    #+:non-standard-analysis std-p))
+; TRACE-LOG[defun-fn/post]: emit normalized DEFUN for proof checker
+  (mv-let
+   (erp val state)
+   (defuns-fn (list def) state
+     (or event-form (cons 'defun def))
+     #+:non-standard-analysis std-p)
+   (cond
+    (erp (mv erp val state))
+    ((not (eq (f-get-global 'raw-proof-format state) :structured))
+     (mv nil val state))
+    (t (let* ((name (car def))
+              (body (body name t (w state)))
+              (formals (getpropc name 'formals nil (w state))))
+         (cond
+          ((null body) (mv nil val state))
+          (t (let ((state
+                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2 :ORIGIN DEFUN/POST)~%"
+                         (list (cons #\0 name)
+                               (cons #\1 formals)
+                               (cons #\2 body))
+                         (proofs-co state) state nil)))
+               (mv nil val state)))))))))
 
 ; Here we develop the :args keyword command that will print all that
 ; we know about a function.
