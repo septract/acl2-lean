@@ -12188,18 +12188,29 @@
    :event event-form))
 
 ; Collect leaf terms from an IF-normalized body for type-prescription
-; proof emission.  Returns a list of leaf terms (the non-IF branches).
-; Each leaf is a term whose type-set contributes to the function's
-; overall type-set.  The checker verifies each leaf's type independently.
+; proof emission.  Returns a list of (leaf-term . type-set) pairs.
+; Each leaf's type-set is computed using the final world (which has
+; the function's own type-prescription as the fixpoint result).
+; The checker verifies each leaf's type-set independently.
 
-(defun tp-collect-if-leaves (body)
+(defun tp-collect-if-leaves (body ens wrld)
   (declare (xargs :guard t :mode :program))
   (if (and (consp body)
            (eq (ffn-symb body) 'if)
            (= (length body) 4))
-      (append (tp-collect-if-leaves (fargn body 2))   ; then-branch
-              (tp-collect-if-leaves (fargn body 3)))   ; else-branch
-      (list body)))
+      (append (tp-collect-if-leaves (fargn body 2) ens wrld)
+              (tp-collect-if-leaves (fargn body 3) ens wrld))
+      (mv-let (ts ttree)
+              (type-set body
+                        nil    ; force-flg
+                        nil    ; dwp
+                        nil    ; type-alist (empty — no IF-branch assumptions)
+                        ens wrld
+                        nil    ; ttree
+                        nil    ; pot-lst
+                        nil)   ; pt
+        (declare (ignore ttree))
+        (list (list body ts)))))
 
 (defun defun-fn (def state event-form #+:non-standard-analysis std-p)
 
@@ -12238,8 +12249,8 @@
                               (not (equal (access type-prescription (car tps) :corollary) *t*)))
                          (let* ((tp (car tps))
                                 (basic-ts (access type-prescription tp :basic-ts))
-                                (leaves (tp-collect-if-leaves body)))
-                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3 :ORIGIN TYPE-PRESCRIPTION-PROOF/DEFUN)~%"
+                                (leaves (tp-collect-if-leaves body (ens state) (w state))))
+                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3 :ORIGIN TPPROOF/DEFUN)~%"
                                 (list (cons #\0 name)
                                       (cons #\1 (access type-prescription tp :corollary))
                                       (cons #\2 basic-ts)
