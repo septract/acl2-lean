@@ -5199,6 +5199,8 @@ its attachment is ignored during proofs"))))
                                   (access recognizer-tuple recog-tuple :fn)
                                   arg)
                             :rhs *t*
+                            :typeset ts
+                            :truets (access recognizer-tuple recog-tuple :true-ts)
                             :runes (all-runes-in-ttree ttree+ nil)
                             :parents (tagged-objects 'pt ttree+))
                       (cdr *structured-rewrite-log*)))
@@ -5235,6 +5237,8 @@ its attachment is ignored during proofs"))))
                            (access recognizer-tuple recog-tuple :fn)
                            arg)
                      :rhs *nil*
+                     :typeset ts
+                     :truets (access recognizer-tuple recog-tuple :true-ts)
                      :runes (all-runes-in-ttree ttree+ nil)
                      :parents (tagged-objects 'pt ttree+))
                (cdr *structured-rewrite-log*)))

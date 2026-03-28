@@ -12210,12 +12210,23 @@
               (formals (getpropc name 'formals nil (w state))))
          (cond
           ((null body) (mv nil val state))
-          (t (let ((state
-                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2 :ORIGIN DEFUN/POST)~%"
-                         (list (cons #\0 name)
-                               (cons #\1 formals)
-                               (cons #\2 body))
-                         (proofs-co state) state nil)))
+          (t (let* ((state
+                     (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2 :ORIGIN DEFUN/POST)~%"
+                          (list (cons #\0 name)
+                                (cons #\1 formals)
+                                (cons #\2 body))
+                          (proofs-co state) state nil))
+; TRACE-LOG[type-prescription/post]: emit type-prescription corollary
+                    (tps (getpropc name 'type-prescriptions nil (w state)))
+                    (state
+                     (if (and tps
+                              (access type-prescription (car tps) :corollary)
+                              (not (equal (access type-prescription (car tps) :corollary) *t*)))
+                         (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :ORIGIN TYPE-PRESCRIPTION/DEFUN)~%"
+                              (list (cons #\0 name)
+                                    (cons #\1 (access type-prescription (car tps) :corollary)))
+                              (proofs-co state) state nil)
+                       state)))
                (mv nil val state)))))))))
 
 ; Here we develop the :args keyword command that will print all that
