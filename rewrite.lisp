@@ -19791,6 +19791,11 @@ its attachment is ignored during proofs"))))
                                               :origin 'with-lemma
                                               :lhs term
                                               :rhs rewritten-rhs
+                                              ; unify-subst maps the rule's
+                                              ; variables to the call-site terms;
+                                              ; the replay needs it to instantiate
+                                              ; the imported lemma deterministically.
+                                              :subst unify-subst
                                               :runes (all-runes-in-ttree
                                                       ttree nil)
                                               :parents (tagged-objects
