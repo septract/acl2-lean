@@ -17382,7 +17382,7 @@ its attachment is ignored during proofs"))))
                        (t :if-test-unknown))
                  :origin 'if-finish/if-test
                  :test test
-                 :unrewritten-test unrewritten-test
+                 :unrewritten-test (sublis-var alist unrewritten-test)
                  :justification (and (or must-be-true must-be-false)
                                      (list :runes (all-runes-in-ttree ts-ttree nil)
                                            :parents (tagged-objects 'pt ts-ttree))))
@@ -17417,7 +17417,7 @@ its attachment is ignored during proofs"))))
            (push (list :begin-if-rewrite
                        :origin 'if-finish/begin-if
                        :test test
-                       :unrewritten-test unrewritten-test)
+                       :unrewritten-test (sublis-var alist unrewritten-test))
                  (cdr *structured-rewrite-log*)))
          #+acl2-loop-only nil
          (sl-let
@@ -17519,7 +17519,7 @@ its attachment is ignored during proofs"))))
           (push (list (if (cadr test) :if-test-true :if-test-false)
                       :origin 'rewrite-if/constant-if-test
                       :test test
-                      :unrewritten-test unrewritten-test
+                      :unrewritten-test (sublis-var alist unrewritten-test)
                       :justification :rewritten-to-constant)
                 (cdr *structured-rewrite-log*))
           ; TRACE-LOG[rewrite-if/constant-test]: rewrite-step (:if-simplification) in rewrite-if [constant test]
