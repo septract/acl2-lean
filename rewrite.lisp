@@ -17523,11 +17523,20 @@ its attachment is ignored during proofs"))))
                       :justification :rewritten-to-constant)
                 (cdr *structured-rewrite-log*))
           ; TRACE-LOG[rewrite-if/constant-test]: rewrite-step (:if-simplification) in rewrite-if [constant test]
+          ; left/right are the IF branches at the FORMAL level (the rewrite alist
+          ; is applied lazily as we recur into them).  Instantiate them via
+          ; sublis-var so the logged term is at the call-site level -- consistent
+          ; with the sibling recognizer/cdr-cons steps and free of formal-vs-clause
+          ; variable capture.  This is logging-only and does not affect rewriting.
           (push (list :rewrite-step
                       :rune '(:if-simplification nil)
                       :origin 'rewrite-if/constant-test
-                      :lhs (mcons-term* 'if test left right)
-                      :rhs (if (cadr test) left right))
+                      :lhs (mcons-term* 'if test
+                                        (sublis-var alist left)
+                                        (sublis-var alist right))
+                      :rhs (if (cadr test)
+                               (sublis-var alist left)
+                               (sublis-var alist right)))
                 (cdr *structured-rewrite-log*)))
         #+acl2-loop-only nil
         (if (cadr test)
