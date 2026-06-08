@@ -36,6 +36,25 @@
    (REWRITE-STEP events are logged). >0 = inside definition body or
    rule RHS expansion (events are suppressed, folded into outer step).")
 
+; TRACE-LOG[structured-rewrite-path]: the congruence PATH of the current redex,
+; read from *deep-gstack* (the live rewrite-frame stack; maintained because
+; set-raw-proof-format :structured forces gstackp on). Returns one (BKPTR . FN)
+; per 'rewrite frame, literal-root-first: BKPTR is the one-based argument position
+; of that frame's term in its parent, FN the function symbol of that term. The
+; driver uses this to emit congruence (arg index → which congruence lemma) instead
+; of locating the redex by subterm match. NOTE: relies on the gframe layout
+; `(sys-fn bkptr . args)` with args = `(term alist obj . ...)` (defrec gframe,
+; rewrite.lisp); accessed with raw car/cdr so this can sit before that defrec.
+#-acl2-loop-only
+(defun structured-rewrite-path ()
+  (let ((path nil))
+    (dolist (fr *deep-gstack* path)
+      (when (eq (car fr) 'rewrite)          ; sys-fn
+        (let* ((bkptr (cadr fr))
+               (term (caddr fr))            ; (car args)
+               (fn (if (consp term) (car term) term)))
+          (push (cons bkptr fn) path))))))
+
 ; We introduce ev-fncall+ early in this file to support its use in the
 ; definition of scons-term.
 
@@ -1554,6 +1573,7 @@ its attachment is ignored during proofs"))))
               (when (and (consp *structured-rewrite-log*) t
                          (not (equal (cons fn args) result)))
                 (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune '(:if-simplification nil)
                             :origin 'scons-term/if-simp
                             :lhs (cons fn args)
@@ -1603,6 +1623,7 @@ its attachment is ignored during proofs"))))
                #-acl2-loop-only
                (when (and (consp *structured-rewrite-log*) t)
                  (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                              :rune (list :executable-counterpart fn)
                              :origin 'scons-term/exec
                              :lhs (cons fn args)
@@ -1620,6 +1641,7 @@ its attachment is ignored during proofs"))))
      #-acl2-loop-only
      (when (and (consp *structured-rewrite-log*) t)
        (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                    :rune '(:equal-self nil)
                    :origin 'scons-term/equal-self
                    :lhs (cons fn args)
@@ -4768,6 +4790,7 @@ its attachment is ignored during proofs"))))
                        (when (and (consp *structured-rewrite-log*)
                                   t)
                          (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:iff-implies-t nil)
                                      :origin 'solidify/iff-implies-t
                                      :lhs term
@@ -4885,6 +4908,7 @@ its attachment is ignored during proofs"))))
                  (when (and (consp *structured-rewrite-log*)
                             (not (equal term (fargn eterm 2))))
                    (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                :rune '(:rewriting-equivalence nil)
                                :origin 'solidify/rewriting-equiv
                                :lhs term
@@ -4916,6 +4940,7 @@ its attachment is ignored during proofs"))))
                              (when (and (consp *structured-rewrite-log*)
                                         (not (equal solidified-term term)))
                                (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                            :rune '(:type-alist nil)
                                            :origin 'solidify/type-alist
                                            :lhs term
@@ -5006,6 +5031,7 @@ its attachment is ignored during proofs"))))
             #-acl2-loop-only
             (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:type-alist nil)
                           :origin 'if11/type-alist-nil
                           :lhs term
@@ -5020,6 +5046,7 @@ its attachment is ignored during proofs"))))
             #-acl2-loop-only
             (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:type-alist nil)
                           :origin 'if11/type-alist-disjoint
                           :lhs term
@@ -5068,6 +5095,7 @@ its attachment is ignored during proofs"))))
             #-acl2-loop-only
             (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:if-same-branches nil)
                           :origin 'if1/same-branches
                           :lhs (if-call test left right swapped-p)
@@ -5084,6 +5112,7 @@ its attachment is ignored during proofs"))))
               (when (and (consp *structured-rewrite-log*)
                          t)
                 (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune '(:if-simplification nil)
                             :origin 'if1/test-eq-left
                             :lhs (if-call test left right swapped-p)
@@ -5101,6 +5130,7 @@ its attachment is ignored during proofs"))))
                        (when (and (consp *structured-rewrite-log*)
                                   t)
                          (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
                                      :origin 'if1/boolean
                                      :lhs (if-call test left right swapped-p)
@@ -5122,6 +5152,7 @@ its attachment is ignored during proofs"))))
             (when (and (consp *structured-rewrite-log*)
                        t)
               (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:if-simplification nil)
                           :origin 'if1/negation
                           :lhs (if-call test left right swapped-p)
@@ -5193,6 +5224,7 @@ its attachment is ignored during proofs"))))
               #-acl2-loop-only
               (when (and (consp *structured-rewrite-log*) t)
                 (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune (access recognizer-tuple recog-tuple :rune)
                             :origin 'recognizer/true
                             :lhs (mcons-term*
@@ -5231,6 +5263,7 @@ its attachment is ignored during proofs"))))
        #-acl2-loop-only
        (when (and (consp *structured-rewrite-log*) t)
          (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                      :rune (access recognizer-tuple recog-tuple :rune)
                      :origin 'recognizer/false
                      :lhs (mcons-term*
@@ -17162,6 +17195,7 @@ its attachment is ignored during proofs"))))
                                  #-acl2-loop-only
                                  (when (and (consp *structured-rewrite-log*) t)
                                    (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                :rune (list :executable-counterpart fn)
                                                :origin 'rewrite/exec-counterpart
                                                :lhs (cons fn rewritten-args)
@@ -17464,6 +17498,7 @@ its attachment is ignored during proofs"))))
                        (when (not (equal rewritten-term
                                          (mcons-term* 'if test left right)))
                          (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
                                      :origin 'if-finish/combined
                                      :lhs (mcons-term* 'if test left right)
@@ -17529,6 +17564,7 @@ its attachment is ignored during proofs"))))
           ; with the sibling recognizer/cdr-cons steps and free of formal-vs-clause
           ; variable capture.  This is logging-only and does not affect rewriting.
           (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                       :rune '(:if-simplification nil)
                       :origin 'rewrite-if/constant-test
                       :lhs (mcons-term* 'if test
@@ -17759,6 +17795,7 @@ its attachment is ignored during proofs"))))
       (when (and (consp *structured-rewrite-log*)
                  t)
         (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                     :rune '(:equal-self nil)
                     :origin 'equal/self
                     :lhs (fcons-term* 'equal lhs rhs)
@@ -17774,6 +17811,7 @@ its attachment is ignored during proofs"))))
       (when (and (consp *structured-rewrite-log*)
                  t)
         (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                     :rune '(:equal-constant nil)
                     :origin 'equal/constant
                     :lhs (fcons-term* 'equal lhs rhs)
@@ -17817,6 +17855,7 @@ its attachment is ignored during proofs"))))
                 (when (and (consp *structured-rewrite-log*)
                            t)
                   (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                               :rune '(:type-set-equality nil)
                               :origin 'equal/type-set-true
                               :lhs (fcons-term* 'equal lhs rhs)
@@ -17831,6 +17870,7 @@ its attachment is ignored during proofs"))))
                 (when (and (consp *structured-rewrite-log*)
                            t)
                   (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                               :rune '(:type-set-equality nil)
                               :origin 'equal/type-set-nil
                               :lhs (fcons-term* 'equal lhs rhs)
@@ -19787,6 +19827,7 @@ its attachment is ignored during proofs"))))
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*) t)
                                   (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                               :rune rune
                                               :origin 'with-lemma
                                               :lhs term
@@ -20134,6 +20175,7 @@ its attachment is ignored during proofs"))))
                                   #-acl2-loop-only
                                   (when (and (consp *structured-rewrite-log*) t)
                                     (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                 :rune rune
                                                 :origin 'fncall/non-recursive
                                                 :lhs term
@@ -20251,6 +20293,7 @@ its attachment is ignored during proofs"))))
                                           #-acl2-loop-only
                                           (when (and (consp *structured-rewrite-log*) t)
                                             (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                         :rune rune
                                                         :origin 'fncall/recursive
                                                         :lhs term
@@ -20268,6 +20311,7 @@ its attachment is ignored during proofs"))))
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*) t)
                                   (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                               :rune rune
                                               :origin 'fncall/abbreviation
                                               :lhs term

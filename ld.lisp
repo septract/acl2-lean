@@ -5197,15 +5197,25 @@
       (f-put-global 'ld-prompt nil state)
       (f-put-global 'ld-post-eval-print nil state)
       (f-put-global 'ld-verbose nil state)
+      ; TRACE-LOG[set-raw-proof-format/gstackp]: force gstackp on while structured
+      ; logging is active so the rewriter maintains *deep-gstack* (the rewrite frame
+      ; stack), from which structured-rewrite-path reads each step's :PATH (congruence
+      ; position). With no monitored runes this only maintains the gstack + no-op break
+      ; checks, so it is behavior-preserving for the proof (log content unchanged).
+      (f-put-global 'gstackp t state)
       (prog2$
        #-acl2-loop-only (setq *structured-rewrite-log* (list :active))
        #+acl2-loop-only nil
        (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil))))
     (t
-     (prog2$
-      #-acl2-loop-only (setq *structured-rewrite-log* nil)
-      #+acl2-loop-only nil
-      state)))))
+     ; TRACE-LOG[set-raw-proof-format/gstackp-off]: restore gstackp when leaving
+     ; structured mode (paired with the force-on above).
+     (pprogn
+      (f-put-global 'gstackp nil state)
+      (prog2$
+       #-acl2-loop-only (setq *structured-rewrite-log* nil)
+       #+acl2-loop-only nil
+       state))))))
 
 (defmacro set-raw-proof-format (val)
   `(set-raw-proof-format-fn ,val state))
