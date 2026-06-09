@@ -5211,8 +5211,8 @@
       ; position). With no monitored runes this only maintains the gstack + no-op break
       ; checks, so it is behavior-preserving for the proof (log content unchanged).
       (f-put-global 'gstackp t state)
-; TRACE-LOG[emit/begin-proof-log]: initialize *structured-rewrite-log* (infra/rewrite-log)
-; and emit the (:BEGIN-PROOF-LOG) marker that opens the proof-log stream.
+; TRACE-LOG[emit/begin-proof-log]: emit the (:BEGIN-PROOF-LOG) marker that opens the
+; proof-log stream (and activate the rewrite-step accumulator *structured-rewrite-log*).
       (prog2$
        #-acl2-loop-only (setq *structured-rewrite-log* (list :active))
        #+acl2-loop-only nil

@@ -132,12 +132,13 @@
     (cond
      (wonp
 ; TRACE-LOG[emit/abbreviation-expansion]: log an abbreviation-expansion rewrite-step
-; (:rhs :abbreviation-expansion) before expanding, in expand-abbreviations.
+; (:origin 'abbreviation-expansion, sentinel :rhs) before expanding, in expand-abbreviations.
       (prog2$
        #-acl2-loop-only
        (when (consp *structured-rewrite-log*)
          (push (list :rewrite-step
                      :rune (access rewrite-rule lemma :rune)
+                     :origin 'abbreviation-expansion
                      :lhs term
                      :rhs :abbreviation-expansion)
                (cdr *structured-rewrite-log*)))
