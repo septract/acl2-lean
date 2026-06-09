@@ -132,7 +132,10 @@
     (cond
      (wonp
 ; TRACE-LOG[emit/abbreviation-expansion]: log an abbreviation-expansion rewrite-step
-; (:origin 'abbreviation-expansion, sentinel :rhs) before expanding, in expand-abbreviations.
+; in expand-abbreviations. The :rhs is the rule's INSTANTIATED rhs (sublis-var of the
+; unify-subst) — the faithful per-step result; its further expansion (the recursive
+; expand-abbreviations call below) is logged as its own steps. (Formerly a sentinel
+; :abbreviation-expansion keyword, which lost the real RHS.)
       (prog2$
        #-acl2-loop-only
        (when (consp *structured-rewrite-log*)
@@ -140,7 +143,8 @@
                      :rune (access rewrite-rule lemma :rune)
                      :origin 'abbreviation-expansion
                      :lhs term
-                     :rhs :abbreviation-expansion)
+                     :rhs (sublis-var unify-subst
+                                      (access rewrite-rule lemma :rhs)))
                (cdr *structured-rewrite-log*)))
        #+acl2-loop-only nil
        (with-accumulated-persistence
@@ -260,9 +264,22 @@
 ; it collapsed because cons-term executed fn on constants.  So we record
 ; a use of the executable-counterpart.
 
-              (mv step-limit
-                  term
-                  (push-lemma (fn-rune-nume fn nil t wrld) ttree)))
+; TRACE-LOG[emit/preprocess/const-fold]: rewrite-step (:executable-counterpart) — cons-term
+; folded a ground application to a constant during expand-abbreviations (preprocess); the
+; rune was already recorded in the ttree, but without this the step itself is unreplayable.
+              (prog2$
+               #-acl2-loop-only
+               (when (consp *structured-rewrite-log*)
+                 (push (list :rewrite-step
+                             :rune (list :executable-counterpart fn)
+                             :origin 'preprocess/const-fold
+                             :lhs (cons fn expanded-args)
+                             :rhs term)
+                       (cdr *structured-rewrite-log*)))
+               #+acl2-loop-only nil
+               (mv step-limit
+                   term
+                   (push-lemma (fn-rune-nume fn nil t wrld) ttree))))
              ((member-equal fn fns-to-be-ignored-by-rewrite)
               (mv step-limit (cons-term fn expanded-args) ttree))
              ((and (all-quoteps expanded-args)
@@ -313,10 +330,25 @@
                          geneqv pequiv-info
                          fns-to-be-ignored-by-rewrite
                          rdepth step-limit ens wrld state ttree))
-                       (t (mv step-limit
-                              (kwote val)
-                              (push-lemma (fn-rune-nume fn nil t wrld)
-                                          ttree))))))))
+                       (t
+; TRACE-LOG[emit/preprocess/eval]: rewrite-step (:executable-counterpart) — ev-fncall+
+; evaluated an enabled function on all-quoted args during expand-abbreviations
+; (preprocess); e.g. (sq '3) => '9. The rune was already in the ttree; the step itself
+; was not emitted, leaving a black-box PROVED preprocess step.
+                        (prog2$
+                         #-acl2-loop-only
+                         (when (consp *structured-rewrite-log*)
+                           (push (list :rewrite-step
+                                       :rune (list :executable-counterpart fn)
+                                       :origin 'preprocess/eval
+                                       :lhs term
+                                       :rhs (kwote val))
+                                 (cdr *structured-rewrite-log*)))
+                         #+acl2-loop-only nil
+                         (mv step-limit
+                             (kwote val)
+                             (push-lemma (fn-rune-nume fn nil t wrld)
+                                         ttree)))))))))
              ((flambdap fn)
               (cond ((abbreviationp nil
                                     (lambda-formals fn)
@@ -430,11 +462,38 @@
                     (b (cadr expanded-args))
                     (c (caddr expanded-args)))
                 (cond
-                 ((equal b c) (mv step-limit b ttree))
+                 ((equal b c)
+; TRACE-LOG[emit/preprocess/if-same]: rewrite-step (:if-same-branches) — (if a b b) => b
+; during expand-abbreviations (preprocess); no rune exists for this fold, so without the
+; emit it is invisible to the proof log.
+                  (prog2$
+                   #-acl2-loop-only
+                   (when (consp *structured-rewrite-log*)
+                     (push (list :rewrite-step
+                                 :rune '(:if-same-branches nil)
+                                 :origin 'preprocess/if-same
+                                 :lhs (cons 'if expanded-args)
+                                 :rhs b)
+                           (cdr *structured-rewrite-log*)))
+                   #+acl2-loop-only nil
+                   (mv step-limit b ttree)))
                  ((quotep a)
-                  (mv step-limit
-                      (if (eq (cadr a) nil) c b)
-                      ttree))
+; TRACE-LOG[emit/preprocess/if-constant-test]: rewrite-step (:if-simplification) —
+; (if 'const b c) => b/c during expand-abbreviations (preprocess); runeless fold,
+; emitted so the discharge chain is replayable.
+                  (prog2$
+                   #-acl2-loop-only
+                   (when (consp *structured-rewrite-log*)
+                     (push (list :rewrite-step
+                                 :rune '(:if-simplification nil)
+                                 :origin 'preprocess/if-constant-test
+                                 :lhs (cons 'if expanded-args)
+                                 :rhs (if (eq (cadr a) nil) c b))
+                           (cdr *structured-rewrite-log*)))
+                   #+acl2-loop-only nil
+                   (mv step-limit
+                       (if (eq (cadr a) nil) c b)
+                       ttree)))
                  ((and (equal geneqv *geneqv-iff*)
                        (equal b *t*)
                        (or (equal c *nil*)
@@ -447,7 +506,20 @@
 ; even put it in the ttree, because for all the user knows this is
 ; primitive type inference.
 
-                  (mv step-limit a ttree))
+; TRACE-LOG[emit/preprocess/if-iff]: rewrite-step (:if-simplification) — under iff,
+; (if a t nil/hard-error) => a during expand-abbreviations (preprocess); deliberately
+; ttree-less upstream (see comment above), so the emit is its only record.
+                  (prog2$
+                   #-acl2-loop-only
+                   (when (consp *structured-rewrite-log*)
+                     (push (list :rewrite-step
+                                 :rune '(:if-simplification nil)
+                                 :origin 'preprocess/if-iff
+                                 :lhs (cons 'if expanded-args)
+                                 :rhs a)
+                           (cdr *structured-rewrite-log*)))
+                   #+acl2-loop-only nil
+                   (mv step-limit a ttree)))
                  (t (mv step-limit
                         (mcons-term 'if expanded-args)
                         ttree)))))
@@ -456,7 +528,20 @@
 
              ((and (eq fn 'equal)
                    (equal (car expanded-args) (cadr expanded-args)))
-              (mv step-limit *t* ttree))
+; TRACE-LOG[emit/preprocess/equal-self]: rewrite-step (:equal-self) — (equal x x) => t
+; during expand-abbreviations (preprocess); runeless fold, emitted so the discharge
+; chain is replayable (mirrors the rewriter's equal/self).
+              (prog2$
+               #-acl2-loop-only
+               (when (consp *structured-rewrite-log*)
+                 (push (list :rewrite-step
+                             :rune '(:equal-self nil)
+                             :origin 'preprocess/equal-self
+                             :lhs (cons 'equal expanded-args)
+                             :rhs *t*)
+                       (cdr *structured-rewrite-log*)))
+               #+acl2-loop-only nil
+               (mv step-limit *t* ttree)))
              (t
               (expand-abbreviations-with-lemma
                term geneqv pequiv-info
@@ -865,10 +950,40 @@
                  (fcons-term (make-lambda (lambda-formals fn) body)
                              expanded-args)))
               ((eq fn 'IMPLIES)
-               (subcor-var (formals 'implies wrld)
-                           expanded-args
-                           (bbody 'implies)))
-              (t term)))))))
+               (let ((expansion (subcor-var (formals 'implies wrld)
+                                            expanded-args
+                                            (bbody 'implies))))
+; TRACE-LOG[emit/final-implies/expand]: rewrite-step (:definition implies) — the final-IMPLIES
+; expansion in expand-any-final-implies1, which upstream "fail[s] to report" (see comment in
+; expand-any-final-implies); logged so the preprocess discharge chain is replayable.
+                 (prog2$
+                  #-acl2-loop-only
+                  (when (consp *structured-rewrite-log*)
+                    (push (list :rewrite-step
+                                :rune (fn-rune-nume 'implies nil nil wrld)
+                                :origin 'final-implies/expand
+                                :lhs (cons 'implies expanded-args)
+                                :rhs expansion)
+                          (cdr *structured-rewrite-log*)))
+                  #+acl2-loop-only nil
+                  expansion)))
+              (t
+; TRACE-LOG[emit/final-implies/eval]: rewrite-step (:executable-counterpart) — cons-term above
+; folds a ground primitive application to a constant as a side effect of term construction,
+; with NO ttree/rune anywhere (this is how e.g. (equal (+ 1 2 3) 6) is proved, leaving a
+; black-box PROVED preprocess step); log the fold so the discharge is replayable.
+               (prog2$
+                #-acl2-loop-only
+                (when (and (consp *structured-rewrite-log*)
+                           (fquotep term))
+                  (push (list :rewrite-step
+                              :rune (list :executable-counterpart fn)
+                              :origin 'final-implies/eval
+                              :lhs (cons fn expanded-args)
+                              :rhs term)
+                        (cdr *structured-rewrite-log*)))
+                #+acl2-loop-only nil
+                term))))))))
 
 (defun expand-any-final-implies1-lst (term-lst wrld)
   (cond ((null term-lst)

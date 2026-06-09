@@ -14332,6 +14332,8 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-with-lemma ; *structured-rewrite-log*
     rewrite-fncall ; *structured-rewrite-log*
     expand-abbreviations-with-lemma ; *structured-rewrite-log*
+    expand-abbreviations ; *structured-rewrite-log*
+    expand-any-final-implies1 ; *structured-rewrite-log*
     rewrite-if ; *structured-rewrite-log*
     rewrite-if-finish ; *structured-rewrite-log*
     rewrite-atm ; *structured-rewrite-log*
