@@ -12183,6 +12183,8 @@
                                                (and (null instructions)
                                                     (default-hints wrld1))
                                                ctx wrld1 state)))
+; TRACE-LOG[emit/defthm]: emit (:DEFTHM name :FORMULA :SOURCE) to the proof log in
+; :structured mode — one top-level event per admitted theorem.
                    (ignore
                     (if (eq (f-get-global 'raw-proof-format state) :structured)
                         (pprogn

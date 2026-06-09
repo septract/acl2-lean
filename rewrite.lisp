@@ -20,6 +20,8 @@
 
 (in-package "ACL2")
 
+; TRACE-LOG[infra/rewrite-log]: the in-memory rewrite-step accumulator that the emit/*
+; rewrite-step sites push onto and waterfall-msg1 (prove.lisp) drains into each (:STEP).
 ; Structured proof output: rewrite trace log.
 ; When :structured mode is active, *structured-rewrite-log* is non-nil.
 ; It accumulates (:rewrite-step ...) plists during rewriting.
@@ -30,6 +32,8 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+; TRACE-LOG[infra/rewrite-depth]: nesting depth guarding which rewrite-steps are logged
+; (0 = literal level → logged; >0 = inside an unfold/RHS expansion → folded into the outer step).
 #-acl2-loop-only
 (defvar *structured-rewrite-depth* 0
   "Nesting depth for structured rewrite logging. 0 = literal level
@@ -20111,6 +20115,10 @@ its attachment is ignored during proofs"))))
                         rune
                         ((the #.*fixnum-type* step-limit) term-out ttree)
                         t ; considered a success unless the parent with-acc-p fails
+; TRACE-LOG[infra/saved-log-tail]: checkpoint the rewrite-log tail before speculatively
+; rewriting a fncall body, so a rejected expansion can be rolled back (see the two
+; matching "Roll back speculative inner events" restores below) — only committed
+; expansion steps reach the proof trace.
 ; Save the structured rewrite log position before body rewriting.
 ; If the expansion is rejected (too-many-ifs or rewrite-fncallp failure),
 ; we roll back the log to discard the speculative inner events.  Only
@@ -20149,7 +20157,7 @@ its attachment is ignored during proofs"))))
                                 (brkpt2 nil 'too-many-ifs-post-rewrite
                                         unify-subst gstack rewritten-body
                                         ttree1 rcnst ancestors state)
-                                ; Roll back speculative inner events
+                                ; TRACE-LOG[infra/saved-log-tail]: roll back speculative inner events (rejected expansion)
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*)
                                            saved-log-tail)
@@ -20327,7 +20335,7 @@ its attachment is ignored during proofs"))))
                                 (brkpt2 nil 'rewrite-fncallp unify-subst gstack
                                         rewritten-body ttree1 rcnst ancestors
                                         state)
-                                ; Roll back speculative inner events
+                                ; TRACE-LOG[infra/saved-log-tail]: roll back speculative inner events (rejected expansion)
                                 #-acl2-loop-only
                                 (when (and (consp *structured-rewrite-log*)
                                            saved-log-tail)

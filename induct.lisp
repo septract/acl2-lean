@@ -131,6 +131,8 @@
                              wrld)
     (cond
      (wonp
+; TRACE-LOG[emit/abbreviation-expansion]: log an abbreviation-expansion rewrite-step
+; (:rhs :abbreviation-expansion) before expanding, in expand-abbreviations.
       (prog2$
        #-acl2-loop-only
        (when (consp *structured-rewrite-log*)
@@ -6809,6 +6811,8 @@
                                 flushed-candidates candidates induct-hint-val
                                 ;cl-set
                                 forcing-round pool-lst)
+; TRACE-LOG[emit/induction]: in :structured mode emit (:INDUCTION :TERM :SUBGOALS :SCHEME)
+; instead of the English induction message (the scheme the replay's induction uses).
                           (cond
                            ((eq (f-get-global 'raw-proof-format state)
                                 :structured)

@@ -1695,6 +1695,9 @@
 
     (reset-all-parallelism-variables))
 
+; TRACE-LOG[suppress/nested-ld-output]: in :structured mode, force nested ld calls to also
+; suppress non-proof output (prompt/post-eval-print/verbose + inhibit-output-lst), since ld
+; saves/restores these state globals and would otherwise lose the set-raw-proof-format setup.
   (let ((new-ld-specials-alist
          (if (eq (f-get-global 'raw-proof-format state) :structured)
 
@@ -1710,6 +1713,8 @@
            new-ld-specials-alist)))
   (pprogn
     (f-put-ld-specials new-ld-specials-alist nil state)
+; TRACE-LOG[suppress/nested-ld-output]: also force inhibit-output-lst in :structured mode
+; (paired with the ld-specials forcing above) so a nested ld emits no non-proof output.
     (if (eq (f-get-global 'raw-proof-format state) :structured)
         (f-put-global 'inhibit-output-lst
                       '(proof-tree event summary warning error observation)
@@ -5184,6 +5189,9 @@
    (cond
     ((eq val :structured)
 
+; TRACE-LOG[infra/structured-setup]: entering :structured mode — set gag-mode off, inhibit
+; non-proof output channels, and suppress the REPL prompt/return-value printing, so stdout
+; carries only machine-parseable s-expressions. (The gstackp force + log init follow.)
 ; In structured mode, suppress all non-proof output so that stdout contains
 ; only machine-parseable s-expressions.  This sets gag-mode off (to get
 ; per-subgoal output), inhibits all non-proof output channels, and suppresses
@@ -5203,6 +5211,8 @@
       ; position). With no monitored runes this only maintains the gstack + no-op break
       ; checks, so it is behavior-preserving for the proof (log content unchanged).
       (f-put-global 'gstackp t state)
+; TRACE-LOG[emit/begin-proof-log]: initialize *structured-rewrite-log* (infra/rewrite-log)
+; and emit the (:BEGIN-PROOF-LOG) marker that opens the proof-log stream.
       (prog2$
        #-acl2-loop-only (setq *structured-rewrite-log* (list :active))
        #+acl2-loop-only nil

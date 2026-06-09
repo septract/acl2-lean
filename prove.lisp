@@ -2638,6 +2638,10 @@
 (defmacro set-splitter-output (val)
   `(f-put-global 'splitter-output ,val state))
 
+; TRACE-LOG[emit/step]: the per-waterfall-step emitter — in :structured mode emit one
+; (:STEP :CLAUSEID :PROCESSOR :RESULT :RUNES [:INPUTCLAUSE] [:NEWCLAUSES] [:REWRITES] …),
+; draining *structured-rewrite-log* into :REWRITES, instead of English prose. The added
+; `input-clause` formal carries the clause for :INPUTCLAUSE (threaded at the call sites).
 (defun waterfall-msg1 (processor cl-id signal clauses new-hist msg ttree pspv
                                  state input-clause)
   (with-output-lock
@@ -2791,6 +2795,8 @@
 
   `(io?-prove-cw ,@rst))
 
+; TRACE-LOG[suppress/clause-body]: in :structured mode the clause is already in emit/step's
+; (:STEP … :INPUTCLAUSE …), so suppress the separate prettyified clause-body print here.
 (defun waterfall-print-clause-body (cl-id clause state)
   (cond
    ((eq (f-get-global 'raw-proof-format state) :structured)
@@ -2983,6 +2989,8 @@
            (t (mv@par pspv state)))
      (pprogn@par
       (serial-first-form-parallel-second-form@par
+; TRACE-LOG[infra/step-clause-arg]: thread `clause` into io?/waterfall-msg1 so emit/step can
+; report :INPUTCLAUSE (both the io? free-var list and the call get the extra arg).
        (io? prove nil state
             (pspv ttree new-hist clauses signal cl-id processor msg clause)
             (waterfall-msg1 processor cl-id signal clauses new-hist msg ttree
@@ -3001,6 +3009,8 @@
 ; developers.
 
        (cond ((equal (f-get-global 'waterfall-printing state) :full)
+; TRACE-LOG[infra/step-clause-arg]: thread `clause` into the :full-mode io?/waterfall-msg1
+; call as well, so emit/step reports :INPUTCLAUSE here too.
               (io? prove t
                    state
                    (pspv ttree new-hist clauses signal cl-id processor msg clause)
@@ -4866,6 +4876,8 @@
            (t
             (io?-prove@par
              (goal-already-printed-p)
+; TRACE-LOG[suppress/hint-note]: suppress the "[Note: A hint was supplied …]" message in
+; :structured mode (non-proof prose that would contaminate the log stream).
              (if (eq (f-get-global 'raw-proof-format state) :structured)
                  state
              (fms "[Note:  A hint was supplied for the goal ~
@@ -7611,6 +7623,8 @@
            (pprogn
             (io? prove nil state
                  (prev-action pool-lsts forcing-round msgs)
+; TRACE-LOG[suppress/forcing-round]: suppress the forcing-round announcement prose in
+; :structured mode.
                  (if (eq (f-get-global 'raw-proof-format state) :structured)
                      state
                  (pprogn
@@ -7668,6 +7682,8 @@
               (io? prove nil state
                    (prev-action forcing-round pool-lst entry cl-id jppl-flg
                                 gag-state)
+; TRACE-LOG[suppress/pop-clause]: suppress the pop-clause / "we now return to" prose in
+; :structured mode.
                    (if (eq (f-get-global 'raw-proof-format state) :structured)
                        state
                    (let* ((cl-set (cadr entry))
@@ -8084,6 +8100,8 @@
       ((= n 0)
        (pprogn
 
+; TRACE-LOG[emit/qed]: in :structured mode emit (:QED) — and (:QED :FORCED n) in the forced
+; case below — instead of the "Q.E.D." / "q.e.d. (given n forced …)" prose, marking proof end.
 ; We normally print "Q.E.D." for a successful proof done in gag-mode even if
 ; proof output is inhibited.  However, if summary output is also inhibited,
 ; then we guess that the user probably would prefer not to be bothered seeing

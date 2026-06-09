@@ -12187,6 +12187,8 @@
    :event-type 'defun
    :event event-form))
 
+; TRACE-LOG[infra/tp-leaves]: helper for the :TYPE-PRESCRIPTION proof data emitted below —
+; collects (leaf-term . type-set) pairs from an IF-normalized body.
 ; Collect leaf terms from an IF-normalized body for type-prescription
 ; proof emission.  Returns a list of (leaf-term . type-set) pairs.
 ; Each leaf's type-set is computed using the final world (which has

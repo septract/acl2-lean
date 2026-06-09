@@ -14324,6 +14324,9 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
 ; errors are caused by attempting to call some of these functions in safe-mode,
 ; consider adding such functions to the list *oneify-primitives*.
 
+; TRACE-LOG[infra/oneify-primitives]: register the structured-proof-log functions (those
+; with #-acl2-loop-only raw code touching *structured-rewrite-log*) as program-fns-with-raw-code;
+; each added entry is marked inline with `; *structured-rewrite-log*`.
   '(set-raw-proof-format-fn ; *structured-rewrite-log*
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*

@@ -7613,6 +7613,8 @@
 ; used in place of str and the input alist if we are in raw-warning-format
 ; mode.
 
+; TRACE-LOG[suppress/warnings]: in :structured mode, suppress warning output so the
+; proof-log stream stays machine-parseable (the summary is still recorded via push-warning).
   (if (eq (f-get-global 'raw-proof-format state) :structured)
 
 ; In structured proof output mode, suppress all warnings to avoid contaminating
