@@ -1716,6 +1716,17 @@
    (t (cons (tests-and-alists alist args mask (car machine))
             (tests-and-alists-lst alist args mask (cdr machine))))))
 
+; TRACE-LOG[infra/induction-cases]: serialize a candidate's tests-and-alists-lst into the
+; (:CASES …) payload of the emit/induction event — one (:TESTS <tests> :ALISTS <alists>) per
+; case, where :ALISTS is the list of induction-hypothesis substitution alists for that case.
+(defun structured-induction-cases (tal-lst)
+  (declare (xargs :guard t :mode :program))
+  (if (atom tal-lst)
+      nil
+    (cons (list :tests (access tests-and-alists (car tal-lst) :tests)
+                :alists (access tests-and-alists (car tal-lst) :alists))
+          (structured-induction-cases (cdr tal-lst)))))
+
 (defun flesh-out-induction-principle (term formals justification mask machine
                                            xterm ttree)
 
@@ -6812,21 +6823,31 @@
                                 flushed-candidates candidates induct-hint-val
                                 ;cl-set
                                 forcing-round pool-lst)
-; TRACE-LOG[emit/induction]: in :structured mode emit (:INDUCTION :TERM :SUBGOALS :SCHEME)
-; instead of the English induction message (the scheme the replay's induction uses).
+; TRACE-LOG[emit/induction]: in :structured mode emit the induction scheme WITH its measure
+; justification — :MEASURE/:REL/:MP/:SUBSET (from the candidate's justification: what decreases,
+; the well-founded relation + its domain, and the measured formals) and :CASES (per case, the
+; governing :TESTS and the IH substitution :ALISTS) — so the replay can build a faithful
+; well-founded induction. :SCHEME (the generated clauses) is kept for cross-check.
                           (cond
                            ((eq (f-get-global 'raw-proof-format state)
                                 :structured)
 
-; Structured output mode: emit induction scheme as s-expression.
+; Structured output mode: emit induction scheme + measure justification as an s-expression.
 
-                            (fms "(:INDUCTION :TERM ~x0 :SUBGOALS ~x1 :SCHEME ~x2)~%"
-                                 (list (cons #\0 (access candidate
-                                                         winning-candidate
-                                                         :induction-term))
-                                       (cons #\1 (length clauses))
-                                       (cons #\2 clauses))
-                                 (proofs-co state) state nil))
+                            (let* ((cand winning-candidate)
+                                   (just (access candidate cand :justification)))
+                            (fms "(:INDUCTION :TERM ~x0 :XTERM ~x1 :SUBGOALS ~x2 :MEASURE ~x3 :REL ~x4 :MP ~x5 :SUBSET ~x6 :CASES ~x7 :SCHEME ~x8)~%"
+                                 (list (cons #\0 (access candidate cand :induction-term))
+                                       (cons #\1 (access candidate cand :xinduction-term))
+                                       (cons #\2 (length clauses))
+                                       (cons #\3 (access justification just :measure))
+                                       (cons #\4 (access justification just :rel))
+                                       (cons #\5 (access justification just :mp))
+                                       (cons #\6 (access justification just :subset))
+                                       (cons #\7 (structured-induction-cases
+                                                  (access candidate cand :tests-and-alists-lst)))
+                                       (cons #\8 clauses))
+                                 (proofs-co state) state nil)))
                            (t
                             (induct-msg/continue
                              pool-lst
