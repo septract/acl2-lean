@@ -12238,7 +12238,7 @@
          (cond
           ((null body) (mv nil val state))
           (t (let* ((state
-                     (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2 :ORIGIN DEFUN/POST)~%"
+                     (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2)~%"
                           (list (cons #\0 name)
                                 (cons #\1 formals)
                                 (cons #\2 body))
@@ -12252,7 +12252,7 @@
                          (let* ((tp (car tps))
                                 (basic-ts (access type-prescription tp :basic-ts))
                                 (leaves (tp-collect-if-leaves body (ens state) (w state))))
-                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3 :ORIGIN TPPROOF/DEFUN)~%"
+                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3)~%"
                                 (list (cons #\0 name)
                                       (cons #\1 (access type-prescription tp :corollary))
                                       (cons #\2 basic-ts)
