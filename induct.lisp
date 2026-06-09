@@ -6824,10 +6824,15 @@
                                 ;cl-set
                                 forcing-round pool-lst)
 ; TRACE-LOG[emit/induction]: in :structured mode emit the induction scheme WITH its measure
-; justification — :MEASURE/:REL/:MP/:SUBSET (from the candidate's justification: what decreases,
-; the well-founded relation + its domain, and the measured formals) and :CASES (per case, the
+; justification — :MEASURE (what decreases) under :REL / :MP (well-founded relation + domain),
+; :CONTROLLERS (the conjecture-level variables the induction is on), and :CASES (per case, the
 ; governing :TESTS and the IH substitution :ALISTS) — so the replay can build a faithful
-; well-founded induction. :SCHEME (the generated clauses) is kept for cross-check.
+; well-founded induction. The justification's measure is in the inducting FUNCTION's formals, so
+; we instantiate it (and report :CONTROLLERS, the already-instantiated controllers) to the
+; conjecture's actuals via the formals->actuals alist of the induction term — otherwise the
+; measure would mention the function's formals while :CASES/:TESTS mention the conjecture's vars
+; (e.g. for (app a b) the measure is acl2-count of a, not of app's formal x). :SCHEME kept for
+; cross-check.
                           (cond
                            ((eq (f-get-global 'raw-proof-format state)
                                 :structured)
@@ -6835,15 +6840,18 @@
 ; Structured output mode: emit induction scheme + measure justification as an s-expression.
 
                             (let* ((cand winning-candidate)
-                                   (just (access candidate cand :justification)))
-                            (fms "(:INDUCTION :TERM ~x0 :XTERM ~x1 :SUBGOALS ~x2 :MEASURE ~x3 :REL ~x4 :MP ~x5 :SUBSET ~x6 :CASES ~x7 :SCHEME ~x8)~%"
-                                 (list (cons #\0 (access candidate cand :induction-term))
+                                   (term (access candidate cand :induction-term))
+                                   (just (access candidate cand :justification))
+                                   (ialist (pairlis$ (formals (ffn-symb term) (w state))
+                                                     (fargs term))))
+                            (fms "(:INDUCTION :TERM ~x0 :XTERM ~x1 :SUBGOALS ~x2 :MEASURE ~x3 :REL ~x4 :MP ~x5 :CONTROLLERS ~x6 :CASES ~x7 :SCHEME ~x8)~%"
+                                 (list (cons #\0 term)
                                        (cons #\1 (access candidate cand :xinduction-term))
                                        (cons #\2 (length clauses))
-                                       (cons #\3 (access justification just :measure))
+                                       (cons #\3 (sublis-var ialist (access justification just :measure)))
                                        (cons #\4 (access justification just :rel))
                                        (cons #\5 (access justification just :mp))
-                                       (cons #\6 (access justification just :subset))
+                                       (cons #\6 (access candidate cand :controllers))
                                        (cons #\7 (structured-induction-cases
                                                   (access candidate cand :tests-and-alists-lst)))
                                        (cons #\8 clauses))
