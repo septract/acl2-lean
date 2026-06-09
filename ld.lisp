@@ -5197,7 +5197,7 @@
       (f-put-global 'ld-prompt nil state)
       (f-put-global 'ld-post-eval-print nil state)
       (f-put-global 'ld-verbose nil state)
-      ; TRACE-LOG[set-raw-proof-format/gstackp]: force gstackp on while structured
+      ; TRACE-LOG[infra/gstackp]: force gstackp on while structured
       ; logging is active so the rewriter maintains *deep-gstack* (the rewrite frame
       ; stack), from which structured-rewrite-path reads each step's :PATH (congruence
       ; position). With no monitored runes this only maintains the gstack + no-op break
@@ -5208,7 +5208,7 @@
        #+acl2-loop-only nil
        (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil))))
     (t
-     ; TRACE-LOG[set-raw-proof-format/gstackp-off]: restore gstackp when leaving
+     ; TRACE-LOG[infra/gstackp-off]: restore gstackp when leaving
      ; structured mode (paired with the force-on above).
      (pprogn
       (f-put-global 'gstackp nil state)

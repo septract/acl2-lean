@@ -12220,7 +12220,7 @@
 ; The only reason this function exists is so that the defmacro for
 ; defun is in the form expected by primordial-event-defmacros.
 
-; TRACE-LOG[defun-fn/post]: emit normalized DEFUN for proof checker
+; TRACE-LOG[emit/defun]: emit normalized DEFUN for proof checker
   (mv-let
    (erp val state)
    (defuns-fn (list def) state
@@ -12241,7 +12241,7 @@
                                 (cons #\1 formals)
                                 (cons #\2 body))
                           (proofs-co state) state nil))
-; TRACE-LOG[type-prescription/post]: emit type-prescription with proof data
+; TRACE-LOG[emit/type-prescription]: emit type-prescription with proof data
                     (tps (getpropc name 'type-prescriptions nil (w state)))
                     (state
                      (if (and tps
