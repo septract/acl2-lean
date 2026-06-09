@@ -17489,10 +17489,11 @@ its attachment is ignored during proofs"))))
                                  wrld
                                  (rw-cache-exit-context ttree ttree1))
                     (progn$
-                     ; TRACE-LOG[emit/if-finish/combined]: end-if-rewrite + rewrite-step (:if-simplification) in rewrite-if-finish
                      #-acl2-loop-only
                      (when (consp *structured-rewrite-log*)
                        (decf *structured-rewrite-depth*)
+                     ; TRACE-LOG[emit/if-finish/end-if]: end-if-rewrite event closing the IF
+                     ; branch in rewrite-if-finish (emitted with the rewrite-step below).
                        (push (list :end-if-rewrite
                                    :origin 'if-finish/end-if
                                    :test test
@@ -17500,6 +17501,8 @@ its attachment is ignored during proofs"))))
                              (cdr *structured-rewrite-log*))
                        (when (not (equal rewritten-term
                                          (mcons-term* 'if test left right)))
+                     ; TRACE-LOG[emit/if-finish/combined]: rewrite-step (:if-simplification) for
+                     ; the simplified IF in rewrite-if-finish (paired with the end-if above).
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
