@@ -1113,7 +1113,20 @@
      (cheap-type-alist-and-pot-lst clause ens wrld state)
      (cond
       (contradictionp
-       (mv t *tau-ttree* calist))
+; TRACE-LOG[emit/preprocess/tau-contradiction]: discharge node — the tau preamble
+; (cheap-type-alist-and-pot-lst) found the negated clause contradictory; ACL2 records
+; only *tau-ttree*, no derivation, so without this node the PROVED leaf is a black box.
+       (prog2$
+        #-acl2-loop-only
+        (when (consp *structured-rewrite-log*)
+          (push (list :rewrite-step
+                      :rune '(:executable-counterpart tau-system)
+                      :origin 'preprocess/tau-contradiction
+                      :lhs (disjoin clause)
+                      :rhs *t*)
+                (cdr *structured-rewrite-log*)))
+        #+acl2-loop-only nil
+        (mv t *tau-ttree* calist)))
       (t
        (let ((triples (merge-sort-car-<
                        (annotate-clause-with-key-numbers clause
@@ -1125,7 +1138,21 @@
                         ens wrld calist)
           (cond
            ((eq flg t)
-            (mv t *tau-ttree* calist))
+; TRACE-LOG[emit/preprocess/tau]: discharge node — the tau decision procedure
+; (tau-clause1p: per-literal tau-assume of the negation until contradiction/must-be-
+; false) proved the clause; verdict-only upstream (*tau-ttree*), recorded here so the
+; PROVED leaf carries its discharge mechanism.
+            (prog2$
+             #-acl2-loop-only
+             (when (consp *structured-rewrite-log*)
+               (push (list :rewrite-step
+                           :rune '(:executable-counterpart tau-system)
+                           :origin 'preprocess/tau
+                           :lhs (disjoin clause)
+                           :rhs *t*)
+                     (cdr *structured-rewrite-log*)))
+             #+acl2-loop-only nil
+             (mv t *tau-ttree* calist)))
            (t (mv nil nil calist)))))))))
    (t (mv nil nil calist))))
 

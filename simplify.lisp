@@ -6849,7 +6849,23 @@
                                  (all-fnnames-lst cl)
                                  ens)))
     (cond
-     (rune (mv t (push-lemma rune nil)))
+     (rune
+; TRACE-LOG[emit/preprocess/built-in-clause]: discharge node — the clause matched a
+; built-in clause (a known truth stored by :built-in-clause rules); ACL2 records only
+; the rune, so without this node the PROVED leaf is a black box. Gated to the
+; preprocess-clause caller so admission-time uses don't pollute the waterfall log.
+      (prog2$
+       #-acl2-loop-only
+       (when (and (consp *structured-rewrite-log*)
+                  (eq caller 'preprocess-clause))
+         (push (list :rewrite-step
+                     :rune rune
+                     :origin 'preprocess/built-in-clause
+                     :lhs (disjoin cl)
+                     :rhs *t*)
+               (cdr *structured-rewrite-log*)))
+       #+acl2-loop-only nil
+       (mv t (push-lemma rune nil))))
      ((null ens) ; then skip forward-chaining
       (cond ((trivial-clause-p cl wrld) (mv t nil))
             (t (mv nil nil))))
@@ -6872,7 +6888,22 @@
 ; with trivial-clause-p, but all of which were very quickly found contradictory
 ; by forward-chain.
 
-                       (cond ((trivial-clause-p cl wrld) (mv t nil))
+                       (cond ((trivial-clause-p cl wrld)
+; TRACE-LOG[emit/preprocess/trivial-clause]: discharge node — trivial-clause-p proved
+; the clause a propositional tautology (tautologyp; no rune exists for this); recorded
+; so the PROVED leaf carries its discharge mechanism. Caller-gated as above.
+                              (prog2$
+                               #-acl2-loop-only
+                               (when (and (consp *structured-rewrite-log*)
+                                          (eq caller 'preprocess-clause))
+                                 (push (list :rewrite-step
+                                             :rune '(:tautology nil)
+                                             :origin 'preprocess/trivial-clause
+                                             :lhs (disjoin cl)
+                                             :rhs *t*)
+                                       (cdr *structured-rewrite-log*)))
+                               #+acl2-loop-only nil
+                               (mv t nil)))
                              (t (mv nil nil))))
                       ((tagged-objectsp 'assumption ttree)
                        (mv (er hard 'built-in-clausep
@@ -6887,7 +6918,23 @@
                                nil
                                (kwote match-free-override))
                            nil))
-                      (t (mv t ttree))))))))
+                      (t
+; TRACE-LOG[emit/preprocess/type-set-fc]: discharge node — forward-chaining +
+; type-set found a contradiction in the negated clause (the runes are in the ttree,
+; but ACL2 records no derivation); recorded so the PROVED leaf carries its discharge
+; mechanism. Caller-gated as above.
+                       (prog2$
+                        #-acl2-loop-only
+                        (when (and (consp *structured-rewrite-log*)
+                                   (eq caller 'preprocess-clause))
+                          (push (list :rewrite-step
+                                      :rune '(:fake-rune-for-type-set nil)
+                                      :origin 'preprocess/type-set-fc
+                                      :lhs (disjoin cl)
+                                      :rhs *t*)
+                                (cdr *structured-rewrite-log*)))
+                        #+acl2-loop-only nil
+                        (mv t ttree)))))))))
 
 (defun crunch-clause-segments1 (seg1 pts1 cl pts)
 
