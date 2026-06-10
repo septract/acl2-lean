@@ -142,6 +142,10 @@
          (push (list :rewrite-step
                      :rune (access rewrite-rule lemma :rune)
                      :origin 'abbreviation-expansion
+                     ; the rule's equivalence relation (EQUAL or IFF or a user
+                     ; equiv) — the replay routes non-EQUAL steps through the
+                     ; R-parameterized judgment (or fails closed).
+                     :equiv (access rewrite-rule lemma :equiv)
                      :lhs term
                      :rhs (sublis-var unify-subst
                                       (access rewrite-rule lemma :rhs)))

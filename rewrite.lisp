@@ -19836,6 +19836,10 @@ its attachment is ignored during proofs"))))
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                               :rune rune
                                               :origin 'with-lemma
+                                              ; the rule's equivalence relation
+                                              ; (see emit/abbreviation-expansion)
+                                              :equiv (access rewrite-rule lemma
+                                                             :equiv)
                                               :lhs term
                                               :rhs rewritten-rhs
                                               ; unify-subst maps the rule's
