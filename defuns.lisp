@@ -11968,6 +11968,73 @@
                  (car pair)
                  state))
 
+; TRACE-LOG[infra/tp-leaves]: helper for the :TYPE-PRESCRIPTION proof data emitted below —
+; collects (leaf-term . type-set) pairs from an IF-normalized body.
+; Collect leaf terms from an IF-normalized body for type-prescription
+; proof emission.  Returns a list of (leaf-term . type-set) pairs.
+; Each leaf's type-set is computed using the final world (which has
+; the function's own type-prescription as the fixpoint result).
+; The checker verifies each leaf's type-set independently.
+
+(defun tp-collect-if-leaves (body ens wrld)
+  (declare (xargs :guard t :mode :program))
+  (if (and (consp body)
+           (eq (ffn-symb body) 'if)
+           (= (length body) 4))
+      (append (tp-collect-if-leaves (fargn body 2) ens wrld)
+              (tp-collect-if-leaves (fargn body 3) ens wrld))
+      (mv-let (ts ttree)
+              (type-set body
+                        nil    ; force-flg
+                        nil    ; dwp
+                        nil    ; type-alist (empty — no IF-branch assumptions)
+                        ens wrld
+                        nil    ; ttree
+                        nil    ; pot-lst
+                        nil)   ; pt
+        (declare (ignore ttree))
+        (list (list body ts)))))
+
+; TRACE-LOG[emit/defun]: emit the normalized (:DEFUN name :FORMALS … :BODY …) event for
+; EVERY admitted name — the shared structured-mode emitter called after
+; install-event-defuns, covering both the singular DEFUN path and every member of a
+; MUTUAL-RECURSION clique (which reaches defuns-fn directly, bypassing defun-fn).
+(defun emit-structured-defuns (names state)
+  (declare (xargs :mode :program :stobjs state))
+  (cond
+   ((or (null names)
+        (not (eq (f-get-global 'raw-proof-format state) :structured)))
+    state)
+   (t (let* ((name (car names))
+             (body (body name t (w state)))
+             (formals (getpropc name 'formals nil (w state))))
+        (cond
+         ((null body) (emit-structured-defuns (cdr names) state))
+         (t (let* ((state
+                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2)~%"
+                         (list (cons #\0 name)
+                               (cons #\1 formals)
+                               (cons #\2 body))
+                         (proofs-co state) state nil))
+; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
+; basic type-set, IF-leaf type-sets) as proof data alongside its :DEFUN.
+                    (tps (getpropc name 'type-prescriptions nil (w state)))
+                    (state
+                     (if (and tps
+                              (access type-prescription (car tps) :corollary)
+                              (not (equal (access type-prescription (car tps) :corollary) *t*)))
+                         (let* ((tp (car tps))
+                                (basic-ts (access type-prescription tp :basic-ts))
+                                (leaves (tp-collect-if-leaves body (ens state) (w state))))
+                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3)~%"
+                                (list (cons #\0 name)
+                                      (cons #\1 (access type-prescription tp :corollary))
+                                      (cons #\2 basic-ts)
+                                      (cons #\3 leaves))
+                                (proofs-co state) state nil))
+                       state)))
+              (emit-structured-defuns (cdr names) state))))))))
+
 (defun defuns-fn (def-lst state event-form #+:non-standard-analysis std-p)
 
 ; Important Note:  Don't change the formals of this function without
@@ -12181,38 +12248,18 @@
                                 (access apply$-badge badge :ilks)))
                            (t (value nil))))))
                   (value nil))
-                (install-event-defuns names event-form def-lst0 symbol-class
-                                      reclassifyingp non-executablep pair ctx wrld
-                                      state)))))))))))
+; TRACE-LOG[infra/emit-defuns-hook]: after the event installs, run the structured-defun
+; emitter over ALL names (single defun AND mutual-recursion cliques; emits nothing
+; unless :structured mode).
+                (mv-let (erp val state)
+                  (install-event-defuns names event-form def-lst0 symbol-class
+                                        reclassifyingp non-executablep pair ctx wrld
+                                        state)
+                  (cond (erp (mv erp val state))
+                        (t (let ((state (emit-structured-defuns names state)))
+                             (mv nil val state)))))))))))))))
    :event-type 'defun
    :event event-form))
-
-; TRACE-LOG[infra/tp-leaves]: helper for the :TYPE-PRESCRIPTION proof data emitted below —
-; collects (leaf-term . type-set) pairs from an IF-normalized body.
-; Collect leaf terms from an IF-normalized body for type-prescription
-; proof emission.  Returns a list of (leaf-term . type-set) pairs.
-; Each leaf's type-set is computed using the final world (which has
-; the function's own type-prescription as the fixpoint result).
-; The checker verifies each leaf's type-set independently.
-
-(defun tp-collect-if-leaves (body ens wrld)
-  (declare (xargs :guard t :mode :program))
-  (if (and (consp body)
-           (eq (ffn-symb body) 'if)
-           (= (length body) 4))
-      (append (tp-collect-if-leaves (fargn body 2) ens wrld)
-              (tp-collect-if-leaves (fargn body 3) ens wrld))
-      (mv-let (ts ttree)
-              (type-set body
-                        nil    ; force-flg
-                        nil    ; dwp
-                        nil    ; type-alist (empty — no IF-branch assumptions)
-                        ens wrld
-                        nil    ; ttree
-                        nil    ; pot-lst
-                        nil)   ; pt
-        (declare (ignore ttree))
-        (list (list body ts)))))
 
 (defun defun-fn (def state event-form #+:non-standard-analysis std-p)
 
@@ -12222,44 +12269,9 @@
 ; The only reason this function exists is so that the defmacro for
 ; defun is in the form expected by primordial-event-defmacros.
 
-; TRACE-LOG[emit/defun]: emit normalized DEFUN for proof checker
-  (mv-let
-   (erp val state)
-   (defuns-fn (list def) state
-     (or event-form (cons 'defun def))
-     #+:non-standard-analysis std-p)
-   (cond
-    (erp (mv erp val state))
-    ((not (eq (f-get-global 'raw-proof-format state) :structured))
-     (mv nil val state))
-    (t (let* ((name (car def))
-              (body (body name t (w state)))
-              (formals (getpropc name 'formals nil (w state))))
-         (cond
-          ((null body) (mv nil val state))
-          (t (let* ((state
-                     (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2)~%"
-                          (list (cons #\0 name)
-                                (cons #\1 formals)
-                                (cons #\2 body))
-                          (proofs-co state) state nil))
-; TRACE-LOG[emit/type-prescription]: emit type-prescription with proof data
-                    (tps (getpropc name 'type-prescriptions nil (w state)))
-                    (state
-                     (if (and tps
-                              (access type-prescription (car tps) :corollary)
-                              (not (equal (access type-prescription (car tps) :corollary) *t*)))
-                         (let* ((tp (car tps))
-                                (basic-ts (access type-prescription tp :basic-ts))
-                                (leaves (tp-collect-if-leaves body (ens state) (w state))))
-                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3)~%"
-                                (list (cons #\0 name)
-                                      (cons #\1 (access type-prescription tp :corollary))
-                                      (cons #\2 basic-ts)
-                                      (cons #\3 leaves))
-                                (proofs-co state) state nil))
-                       state)))
-               (mv nil val state)))))))))
+  (defuns-fn (list def) state
+    (or event-form (cons 'defun def))
+    #+:non-standard-analysis std-p))
 
 ; Here we develop the :args keyword command that will print all that
 ; we know about a function.
