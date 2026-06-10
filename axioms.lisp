@@ -14334,6 +14334,9 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     expand-abbreviations-with-lemma ; *structured-rewrite-log*
     expand-abbreviations ; *structured-rewrite-log*
     expand-any-final-implies1 ; *structured-rewrite-log*
+    clausify-input ; *structured-rewrite-log*
+    clausify-input1 ; *structured-rewrite-log*
+    clausify-input1-lst ; *structured-rewrite-log*
     built-in-clausep ; *structured-rewrite-log*
     tau-clausep ; *structured-rewrite-log*
     rewrite-if ; *structured-rewrite-log*

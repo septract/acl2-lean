@@ -814,13 +814,26 @@
    (t (sl-let (wonp term ttree)
               (expand-and-or term bool fns-to-be-ignored-by-rewrite
                              ens wrld state ttree step-limit)
-              (cond (wonp
-                     (clausify-input1 term bool fns-to-be-ignored-by-rewrite
-                                      ens wrld state ttree step-limit))
-                    (bool (mv step-limit (list term) ttree))
-                    (t (mv step-limit
-                           (list (dumb-negate-lit term))
-                           ttree)))))))
+              (prog2$
+; TRACE-LOG[emit/clausify/expand]: marker — expand-and-or changed the term during
+; clausification (a definition/rewrite expansion chosen by the ens, NOT a pure
+; if-split). The checker treats its presence as a replay frontier until the
+; expansion steps are bridged.
+               #-acl2-loop-only
+               (when (and wonp (consp *structured-rewrite-log*))
+                 (push (list :clausify-expand
+                             :origin 'clausify/expand
+                             :bool bool
+                             :to term)
+                       (cdr *structured-rewrite-log*)))
+               #+acl2-loop-only nil
+               (cond (wonp
+                      (clausify-input1 term bool fns-to-be-ignored-by-rewrite
+                                       ens wrld state ttree step-limit))
+                     (bool (mv step-limit (list term) ttree))
+                     (t (mv step-limit
+                            (list (dumb-negate-lit term))
+                            ttree))))))))
 
 (defun clausify-input1-lst (lst fns-to-be-ignored-by-rewrite ens wrld state
                                 ttree step-limit)
@@ -833,14 +846,26 @@
         (t (sl-let (clause ttree)
                    (clausify-input1 (car lst) t fns-to-be-ignored-by-rewrite
                                     ens wrld state ttree step-limit)
-                   (sl-let (clauses ttree)
-                           (clausify-input1-lst (cdr lst)
-                                                fns-to-be-ignored-by-rewrite
-                                                ens wrld state ttree
-                                                step-limit)
-                           (mv step-limit
-                               (conjoin-clause-to-clause-set clause clauses)
-                               ttree))))))
+                   (prog2$
+; TRACE-LOG[emit/clausify/split]: checkpoint — one negated literal of the neg-clause
+; clausified (bool=t): the disjunction of :CLAUSE is equivalent to :LIT. The checker
+; replays the if-split recursion validated against this recorded output.
+                    #-acl2-loop-only
+                    (when (consp *structured-rewrite-log*)
+                      (push (list :clausify-split
+                                  :origin 'clausify/split
+                                  :lit (car lst)
+                                  :clause clause)
+                            (cdr *structured-rewrite-log*)))
+                    #+acl2-loop-only nil
+                    (sl-let (clauses ttree)
+                            (clausify-input1-lst (cdr lst)
+                                                 fns-to-be-ignored-by-rewrite
+                                                 ens wrld state ttree
+                                                 step-limit)
+                            (mv step-limit
+                                (conjoin-clause-to-clause-set clause clauses)
+                                ttree)))))))
 
 (defun clausify-input (term fns-to-be-ignored-by-rewrite ens wrld state ttree
                             step-limit)
@@ -854,7 +879,17 @@
 ; results: a new step-limit, the set of clauses, and a ttree documenting the
 ; expansions.
 
-  (sl-let (neg-clause ttree)
+  (prog2$
+; TRACE-LOG[emit/clausify/input]: checkpoint — the term entering clausification (the
+; final term of the logged preprocess rewrite chain); pins the chain↔clausify joint.
+   #-acl2-loop-only
+   (when (consp *structured-rewrite-log*)
+     (push (list :clausify-input
+                 :origin 'clausify/input
+                 :term term)
+           (cdr *structured-rewrite-log*)))
+   #+acl2-loop-only nil
+   (sl-let (neg-clause ttree)
           (clausify-input1 term nil fns-to-be-ignored-by-rewrite ens
                            wrld state ttree step-limit)
 
@@ -864,9 +899,33 @@
 ; (not lit1) ... (not litn)).  We will form a clause from each (not lit1) and
 ; return the set of clauses, implicitly conjoined.
 
-          (clausify-input1-lst (dumb-negate-lit-lst neg-clause)
-                               fns-to-be-ignored-by-rewrite
-                               ens wrld state ttree step-limit)))
+          (prog2$
+; TRACE-LOG[emit/clausify/neg]: checkpoint — the neg-clause (bool=nil pass): the
+; disjunction of :CLAUSE is equivalent to the NEGATION of the input term; its
+; negated literals are what the split pass conjoins over.
+           #-acl2-loop-only
+           (when (consp *structured-rewrite-log*)
+             (push (list :clausify-neg
+                         :origin 'clausify/neg
+                         :clause neg-clause)
+                   (cdr *structured-rewrite-log*)))
+           #+acl2-loop-only nil
+           (sl-let (clauses ttree)
+                   (clausify-input1-lst (dumb-negate-lit-lst neg-clause)
+                                        fns-to-be-ignored-by-rewrite
+                                        ens wrld state ttree step-limit)
+                   (prog2$
+; TRACE-LOG[emit/clausify/out]: checkpoint — the conjoined clause SET leaving
+; clausify-input (before tau filtering; the step's :NEWCLAUSES minus any
+; tau-discharged clause must equal this set).
+                    #-acl2-loop-only
+                    (when (consp *structured-rewrite-log*)
+                      (push (list :clausify-out
+                                  :origin 'clausify/out
+                                  :clauses clauses)
+                            (cdr *structured-rewrite-log*)))
+                    #+acl2-loop-only nil
+                    (mv step-limit clauses ttree)))))))
 
 (defun expand-some-non-rec-fns-in-clauses (fns clauses wrld)
 
