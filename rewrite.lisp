@@ -1579,7 +1579,7 @@ its attachment is ignored during proofs"))))
                 (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune '(:if-simplification nil)
-                            :origin 'scons-term/if-simp
+                            :origin 'scons-term/if-simp :equiv 'equal
                             :lhs (cons fn args)
                             :rhs result)
                       (cdr *structured-rewrite-log*)))
@@ -1629,7 +1629,7 @@ its attachment is ignored during proofs"))))
                  (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                              :rune (list :executable-counterpart fn)
-                             :origin 'scons-term/exec
+                             :origin 'scons-term/exec :equiv 'equal
                              :lhs (cons fn args)
                              :rhs (kwote val))
                        (cdr *structured-rewrite-log*)))
@@ -1647,7 +1647,7 @@ its attachment is ignored during proofs"))))
        (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                    :rune '(:equal-self nil)
-                   :origin 'scons-term/equal-self
+                   :origin 'scons-term/equal-self :equiv 'equal
                    :lhs (cons fn args)
                    :rhs *t*)
              (cdr *structured-rewrite-log*)))
@@ -4796,7 +4796,7 @@ its attachment is ignored during proofs"))))
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:iff-implies-t nil)
-                                     :origin 'solidify/iff-implies-t
+                                     :origin 'solidify/iff-implies-t :equiv 'iff ; term => T under iff, not equal
                                      :lhs term
                                      :rhs *t*)
                                (cdr *structured-rewrite-log*)))
@@ -4914,7 +4914,7 @@ its attachment is ignored during proofs"))))
                    (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                :rune '(:rewriting-equivalence nil)
-                               :origin 'solidify/rewriting-equiv
+                               :origin 'solidify/rewriting-equiv :equiv 'equal
                                :lhs term
                                :rhs (fargn eterm 2)
                                :equiv-term eterm
@@ -4945,7 +4945,7 @@ its attachment is ignored during proofs"))))
                                (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                            :rune '(:type-alist nil)
-                                           :origin 'solidify/type-alist
+                                           :origin 'solidify/type-alist :equiv 'equal
                                            :lhs term
                                            :rhs solidified-term
                                            :parents (tagged-objects
@@ -5036,7 +5036,7 @@ its attachment is ignored during proofs"))))
               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:type-alist nil)
-                          :origin 'if11/type-alist-nil
+                          :origin 'if11/type-alist-nil :equiv 'equal
                           :lhs term
                           :rhs *nil*)
                     (cdr *structured-rewrite-log*)))
@@ -5051,7 +5051,7 @@ its attachment is ignored during proofs"))))
               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:type-alist nil)
-                          :origin 'if11/type-alist-disjoint
+                          :origin 'if11/type-alist-disjoint :equiv 'equal
                           :lhs term
                           :rhs *t*)
                     (cdr *structured-rewrite-log*)))
@@ -5100,7 +5100,7 @@ its attachment is ignored during proofs"))))
               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:if-same-branches nil)
-                          :origin 'if1/same-branches
+                          :origin 'if1/same-branches :equiv 'equal
                           :lhs (if-call test left right swapped-p)
                           :rhs left)
                     (cdr *structured-rewrite-log*)))
@@ -5117,7 +5117,7 @@ its attachment is ignored during proofs"))))
                 (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune '(:if-simplification nil)
-                            :origin 'if1/test-eq-left
+                            :origin 'if1/test-eq-left :equiv 'equal
                             :lhs (if-call test left right swapped-p)
                             :rhs test)
                       (cdr *structured-rewrite-log*)))
@@ -5135,7 +5135,7 @@ its attachment is ignored during proofs"))))
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
-                                     :origin 'if1/boolean
+                                     :origin 'if1/boolean :equiv 'equal
                                      :lhs (if-call test left right swapped-p)
                                      :rhs test)
                                (cdr *structured-rewrite-log*)))
@@ -5157,7 +5157,7 @@ its attachment is ignored during proofs"))))
               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:if-simplification nil)
-                          :origin 'if1/negation
+                          :origin 'if1/negation :equiv 'equal
                           :lhs (if-call test left right swapped-p)
                           :rhs (fcons-term* 'not test))
                     (cdr *structured-rewrite-log*)))
@@ -5229,7 +5229,7 @@ its attachment is ignored during proofs"))))
                 (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune (access recognizer-tuple recog-tuple :rune)
-                            :origin 'recognizer/true
+                            :origin 'recognizer/true :equiv 'equal
                             :lhs (mcons-term*
                                   (access recognizer-tuple recog-tuple :fn)
                                   arg)
@@ -5268,7 +5268,7 @@ its attachment is ignored during proofs"))))
          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                      :rune (access recognizer-tuple recog-tuple :rune)
-                     :origin 'recognizer/false
+                     :origin 'recognizer/false :equiv 'equal
                      :lhs (mcons-term*
                            (access recognizer-tuple recog-tuple :fn)
                            arg)
@@ -7245,7 +7245,7 @@ its attachment is ignored during proofs"))))
                 `(progn (when (consp *structured-rewrite-log*)
                           (incf *structured-rewrite-depth*)
                           (push (list :begin-inner-rewrite
-                                      :origin 'rewrite-entry/begin-inner
+                                      :origin 'rewrite-entry/begin-inner :equiv 'equal
                                       :kind ',inner-rewrite-kind)
                                 (cdr *structured-rewrite-log*)))
                         ,call)
@@ -7277,7 +7277,7 @@ its attachment is ignored during proofs"))))
                        `((when (consp *structured-rewrite-log*)
                            (decf *structured-rewrite-depth*)
                            (push (list :end-inner-rewrite
-                                       :origin 'rewrite-entry/end-inner-cltl2
+                                       :origin 'rewrite-entry/end-inner-cltl2 :equiv 'equal
                                        :kind ',inner-rewrite-kind)
                                  (cdr *structured-rewrite-log*))))))
                   #-cltl2
@@ -7290,7 +7290,7 @@ its attachment is ignored during proofs"))))
                             `((when (consp *structured-rewrite-log*)
                                 (decf *structured-rewrite-depth*)
                                 (push (list :end-inner-rewrite
-                                            :origin 'rewrite-entry/end-inner-noncltl2
+                                            :origin 'rewrite-entry/end-inner-noncltl2 :equiv 'equal
                                             :kind ',inner-rewrite-kind)
                                       (cdr *structured-rewrite-log*)))))
                         ,var)))
@@ -7301,7 +7301,7 @@ its attachment is ignored during proofs"))))
                           (when (consp *structured-rewrite-log*)
                             (decf *structured-rewrite-depth*)
                             (push (list :end-inner-rewrite
-                                        :origin 'rewrite-entry/end-inner-default
+                                        :origin 'rewrite-entry/end-inner-default :equiv 'equal
                                         :kind ',inner-rewrite-kind)
                                   (cdr *structured-rewrite-log*))))
                       depth-call)))
@@ -17200,7 +17200,7 @@ its attachment is ignored during proofs"))))
                                    (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                :rune (list :executable-counterpart fn)
-                                               :origin 'rewrite/exec-counterpart
+                                               :origin 'rewrite/exec-counterpart :equiv 'equal
                                                :lhs (cons fn rewritten-args)
                                                :rhs (kwote val))
                                          (cdr *structured-rewrite-log*)))
@@ -17417,7 +17417,7 @@ its attachment is ignored during proofs"))))
      (push (list (cond (must-be-true :if-test-true)
                        (must-be-false :if-test-false)
                        (t :if-test-unknown))
-                 :origin 'if-finish/if-test
+                 :origin 'if-finish/if-test :equiv 'equal
                  :test test
                  :unrewritten-test (sublis-var alist unrewritten-test)
                  :justification (and (or must-be-true must-be-false)
@@ -17452,7 +17452,7 @@ its attachment is ignored during proofs"))))
          (when (consp *structured-rewrite-log*)
            (incf *structured-rewrite-depth*)
            (push (list :begin-if-rewrite
-                       :origin 'if-finish/begin-if
+                       :origin 'if-finish/begin-if :equiv 'equal
                        :test test
                        :unrewritten-test (sublis-var alist unrewritten-test))
                  (cdr *structured-rewrite-log*)))
@@ -17495,7 +17495,7 @@ its attachment is ignored during proofs"))))
                      ; TRACE-LOG[emit/if-finish/end-if]: end-if-rewrite event closing the IF
                      ; branch in rewrite-if-finish (emitted with the rewrite-step below).
                        (push (list :end-if-rewrite
-                                   :origin 'if-finish/end-if
+                                   :origin 'if-finish/end-if :equiv 'equal
                                    :test test
                                    :result rewritten-term)
                              (cdr *structured-rewrite-log*))
@@ -17506,7 +17506,7 @@ its attachment is ignored during proofs"))))
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
-                                     :origin 'if-finish/combined
+                                     :origin 'if-finish/combined :equiv 'equal
                                      :lhs (mcons-term* 'if test left right)
                                      :rhs rewritten-term)
                                (cdr *structured-rewrite-log*))))
@@ -17558,7 +17558,7 @@ its attachment is ignored during proofs"))))
         (when (and (consp *structured-rewrite-log*) t)
           ; TRACE-LOG[emit/rewrite-if/constant-if-test]: if-test in rewrite-if [constant test]
           (push (list (if (cadr test) :if-test-true :if-test-false)
-                      :origin 'rewrite-if/constant-if-test
+                      :origin 'rewrite-if/constant-if-test :equiv 'equal
                       :test test
                       :unrewritten-test (sublis-var alist unrewritten-test)
                       :justification :rewritten-to-constant)
@@ -17572,7 +17572,7 @@ its attachment is ignored during proofs"))))
           (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                       :rune '(:if-simplification nil)
-                      :origin 'rewrite-if/constant-test
+                      :origin 'rewrite-if/constant-test :equiv 'equal
                       :lhs (mcons-term* 'if test
                                         (sublis-var alist left)
                                         (sublis-var alist right))
@@ -17803,7 +17803,7 @@ its attachment is ignored during proofs"))))
         (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                     :rune '(:equal-self nil)
-                    :origin 'equal/self
+                    :origin 'equal/self :equiv 'equal
                     :lhs (fcons-term* 'equal lhs rhs)
                     :rhs *t*)
               (cdr *structured-rewrite-log*)))
@@ -17819,7 +17819,7 @@ its attachment is ignored during proofs"))))
         (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                     :rune '(:equal-constant nil)
-                    :origin 'equal/constant
+                    :origin 'equal/constant :equiv 'equal
                     :lhs (fcons-term* 'equal lhs rhs)
                     :rhs *nil*)
               (cdr *structured-rewrite-log*)))
@@ -17863,7 +17863,7 @@ its attachment is ignored during proofs"))))
                   (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                               :rune '(:type-set-equality nil)
-                              :origin 'equal/type-set-true
+                              :origin 'equal/type-set-true :equiv 'equal
                               :lhs (fcons-term* 'equal lhs rhs)
                               :rhs *t*)
                         (cdr *structured-rewrite-log*)))
@@ -17878,7 +17878,7 @@ its attachment is ignored during proofs"))))
                   (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                               :rune '(:type-set-equality nil)
-                              :origin 'equal/type-set-nil
+                              :origin 'equal/type-set-nil :equiv 'equal
                               :lhs (fcons-term* 'equal lhs rhs)
                               :rhs *nil*)
                         (cdr *structured-rewrite-log*)))
@@ -20191,7 +20191,7 @@ its attachment is ignored during proofs"))))
                                     (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                 :rune rune
-                                                :origin 'fncall/non-recursive
+                                                :origin 'fncall/non-recursive :equiv 'equal
                                                 :lhs term
                                                 :rhs rewritten-body
                                                 :subst unify-subst)
@@ -20309,7 +20309,7 @@ its attachment is ignored during proofs"))))
                                             (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                         :rune rune
-                                                        :origin 'fncall/recursive
+                                                        :origin 'fncall/recursive :equiv 'equal
                                                         :lhs term
                                                         :rhs rewritten-body
                                                         :subst unify-subst)
@@ -20327,7 +20327,7 @@ its attachment is ignored during proofs"))))
                                   (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                               :rune rune
-                                              :origin 'fncall/abbreviation
+                                              :origin 'fncall/abbreviation :equiv 'equal
                                               :lhs term
                                               :rhs rewritten-body
                                               :subst unify-subst)

@@ -276,7 +276,7 @@
                (when (consp *structured-rewrite-log*)
                  (push (list :rewrite-step
                              :rune (list :executable-counterpart fn)
-                             :origin 'preprocess/const-fold
+                             :origin 'preprocess/const-fold :equiv 'equal
                              :lhs (cons fn expanded-args)
                              :rhs term)
                        (cdr *structured-rewrite-log*)))
@@ -344,7 +344,7 @@
                          (when (consp *structured-rewrite-log*)
                            (push (list :rewrite-step
                                        :rune (list :executable-counterpart fn)
-                                       :origin 'preprocess/eval
+                                       :origin 'preprocess/eval :equiv 'equal
                                        :lhs term
                                        :rhs (kwote val))
                                  (cdr *structured-rewrite-log*)))
@@ -475,7 +475,7 @@
                    (when (consp *structured-rewrite-log*)
                      (push (list :rewrite-step
                                  :rune '(:if-same-branches nil)
-                                 :origin 'preprocess/if-same
+                                 :origin 'preprocess/if-same :equiv 'equal
                                  :lhs (cons 'if expanded-args)
                                  :rhs b)
                            (cdr *structured-rewrite-log*)))
@@ -490,7 +490,7 @@
                    (when (consp *structured-rewrite-log*)
                      (push (list :rewrite-step
                                  :rune '(:if-simplification nil)
-                                 :origin 'preprocess/if-constant-test
+                                 :origin 'preprocess/if-constant-test :equiv 'equal
                                  :lhs (cons 'if expanded-args)
                                  :rhs (if (eq (cadr a) nil) c b))
                            (cdr *structured-rewrite-log*)))
@@ -518,7 +518,7 @@
                    (when (consp *structured-rewrite-log*)
                      (push (list :rewrite-step
                                  :rune '(:if-simplification nil)
-                                 :origin 'preprocess/if-iff
+                                 :origin 'preprocess/if-iff :equiv 'iff ; (if X 't 'nil) => X is an IFF step
                                  :lhs (cons 'if expanded-args)
                                  :rhs a)
                            (cdr *structured-rewrite-log*)))
@@ -540,7 +540,7 @@
                (when (consp *structured-rewrite-log*)
                  (push (list :rewrite-step
                              :rune '(:equal-self nil)
-                             :origin 'preprocess/equal-self
+                             :origin 'preprocess/equal-self :equiv 'equal
                              :lhs (cons 'equal expanded-args)
                              :rhs *t*)
                        (cdr *structured-rewrite-log*)))
@@ -826,7 +826,7 @@
                #-acl2-loop-only
                (when (and wonp (consp *structured-rewrite-log*))
                  (push (list :clausify-expand
-                             :origin 'clausify/expand
+                             :origin 'clausify/expand :equiv 'equal
                              :bool bool
                              :to term)
                        (cdr *structured-rewrite-log*)))
@@ -857,7 +857,7 @@
                     #-acl2-loop-only
                     (when (consp *structured-rewrite-log*)
                       (push (list :clausify-split
-                                  :origin 'clausify/split
+                                  :origin 'clausify/split :equiv 'equal
                                   :lit (car lst)
                                   :clause clause)
                             (cdr *structured-rewrite-log*)))
@@ -889,7 +889,7 @@
    #-acl2-loop-only
    (when (consp *structured-rewrite-log*)
      (push (list :clausify-input
-                 :origin 'clausify/input
+                 :origin 'clausify/input :equiv 'equal
                  :term term)
            (cdr *structured-rewrite-log*)))
    #+acl2-loop-only nil
@@ -910,7 +910,7 @@
            #-acl2-loop-only
            (when (consp *structured-rewrite-log*)
              (push (list :clausify-neg
-                         :origin 'clausify/neg
+                         :origin 'clausify/neg :equiv 'equal
                          :clause neg-clause)
                    (cdr *structured-rewrite-log*)))
            #+acl2-loop-only nil
@@ -925,7 +925,7 @@
                     #-acl2-loop-only
                     (when (consp *structured-rewrite-log*)
                       (push (list :clausify-out
-                                  :origin 'clausify/out
+                                  :origin 'clausify/out :equiv 'equal
                                   :clauses clauses)
                             (cdr *structured-rewrite-log*)))
                     #+acl2-loop-only nil
@@ -1024,7 +1024,7 @@
                   (when (consp *structured-rewrite-log*)
                     (push (list :rewrite-step
                                 :rune (fn-rune-nume 'implies nil nil wrld)
-                                :origin 'final-implies/expand
+                                :origin 'final-implies/expand :equiv 'equal
                                 :lhs (cons 'implies expanded-args)
                                 :rhs expansion)
                           (cdr *structured-rewrite-log*)))
@@ -1041,7 +1041,7 @@
                            (fquotep term))
                   (push (list :rewrite-step
                               :rune (list :executable-counterpart fn)
-                              :origin 'final-implies/eval
+                              :origin 'final-implies/eval :equiv 'equal
                               :lhs (cons fn expanded-args)
                               :rhs term)
                         (cdr *structured-rewrite-log*)))
@@ -1184,7 +1184,7 @@
         (when (consp *structured-rewrite-log*)
           (push (list :rewrite-step
                       :rune '(:executable-counterpart tau-system)
-                      :origin 'preprocess/tau-contradiction
+                      :origin 'preprocess/tau-contradiction :equiv 'equal
                       :lhs (disjoin clause)
                       :rhs *t*)
                 (cdr *structured-rewrite-log*)))
@@ -1210,7 +1210,7 @@
              (when (consp *structured-rewrite-log*)
                (push (list :rewrite-step
                            :rune '(:executable-counterpart tau-system)
-                           :origin 'preprocess/tau
+                           :origin 'preprocess/tau :equiv 'equal
                            :lhs (disjoin clause)
                            :rhs *t*)
                      (cdr *structured-rewrite-log*)))

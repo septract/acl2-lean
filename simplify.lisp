@@ -5663,7 +5663,7 @@
              (when (and (consp *structured-rewrite-log*)
                         t)
                (push (list :type-set-reasoning
-                           :origin 'atm/type-set-nil
+                           :origin 'atm/type-set-nil :equiv 'equal
                            :term atm
                            :result :nil
                            :not-flg not-flg
@@ -5678,7 +5678,7 @@
              (when (and (consp *structured-rewrite-log*)
                         t)
                (push (list :type-set-reasoning
-                           :origin 'atm/type-set-true
+                           :origin 'atm/type-set-true :equiv 'equal
                            :term atm
                            :result :true
                            :not-flg not-flg
@@ -5814,7 +5814,7 @@
                                            (not (equal ans1 atm)))
                                   (push (list :rewrite-step
                                               :rune '(:clause-context-resolution nil)
-                                              :origin 'atm/clause-context
+                                              :origin 'atm/clause-context :equiv 'equal
                                               :lhs atm
                                               :rhs ans1)
                                         (cdr *structured-rewrite-log*)))
@@ -6449,7 +6449,7 @@
        #-acl2-loop-only
        (when (consp *structured-rewrite-log*)
          (push (list :branch-substitution
-                     :origin 'trivial-equiv/branch-subst
+                     :origin 'trivial-equiv/branch-subst :equiv 'equal
                      :equivalence equiv
                      :lhs lhs
                      :rhs rhs)
@@ -6860,7 +6860,7 @@
                   (eq caller 'preprocess-clause))
          (push (list :rewrite-step
                      :rune rune
-                     :origin 'preprocess/built-in-clause
+                     :origin 'preprocess/built-in-clause :equiv 'equal
                      :lhs (disjoin cl)
                      :rhs *t*)
                (cdr *structured-rewrite-log*)))
@@ -6898,7 +6898,7 @@
                                           (eq caller 'preprocess-clause))
                                  (push (list :rewrite-step
                                              :rune '(:tautology nil)
-                                             :origin 'preprocess/trivial-clause
+                                             :origin 'preprocess/trivial-clause :equiv 'equal
                                              :lhs (disjoin cl)
                                              :rhs *t*)
                                        (cdr *structured-rewrite-log*)))
@@ -6929,7 +6929,7 @@
                                    (eq caller 'preprocess-clause))
                           (push (list :rewrite-step
                                       :rune '(:fake-rune-for-type-set nil)
-                                      :origin 'preprocess/type-set-fc
+                                      :origin 'preprocess/type-set-fc :equiv 'equal
                                       :lhs (disjoin cl)
                                       :rhs *t*)
                                 (cdr *structured-rewrite-log*)))
@@ -7436,7 +7436,7 @@
       #-acl2-loop-only
       (when (consp *structured-rewrite-log*)
         (push (list :begin-literal
-                    :origin 'clause/begin-literal
+                    :origin 'clause/begin-literal :equiv 'equal
                     :index bkptr
                     :literal (car tail)
                     :not-flg not-flg)
@@ -7535,7 +7535,7 @@
                       (when (and (consp *structured-rewrite-log*)
                                  (not (equal val (car tail))))
                         (push (list :rewritten-literal
-                                    :origin 'clause/rewritten-literal
+                                    :origin 'clause/rewritten-literal :equiv 'equal
                                     :original (car tail)
                                     :result val)
                               (cdr *structured-rewrite-log*)))
@@ -7554,7 +7554,7 @@
                       (when (consp *structured-rewrite-log*)
                         ; TRACE-LOG[emit/clause/end-literal]: end-literal in rewrite-clause
                         (push (list :end-literal
-                                    :origin 'clause/end-literal
+                                    :origin 'clause/end-literal :equiv 'equal
                                     :index bkptr
                                     :result val
                                     :branches (length branches))
@@ -7562,7 +7562,7 @@
                         (when (> (length branches) 1)
                           ; TRACE-LOG[emit/clause/case-split]: case-split in rewrite-clause
                           (push (list :case-split
-                                      :origin 'clause/case-split
+                                      :origin 'clause/case-split :equiv 'equal
                                       :literal-index bkptr
                                       :num-branches (length branches))
                                 (cdr *structured-rewrite-log*))))
@@ -7821,7 +7821,7 @@
                     (when (consp *structured-rewrite-log*)
                       ; TRACE-LOG[emit/clause-lst/begin-branch]: begin-branch in rewrite-clause-lst
                       (push (list :begin-branch
-                                  :origin 'clause-lst/begin-branch
+                                  :origin 'clause-lst/begin-branch :equiv 'equal
                                   :segment (car segs))
                             (cdr *structured-rewrite-log*))
 
@@ -7844,7 +7844,7 @@
                             (cond ((and (variablep lhs) (variablep rhs))
                                    ; TRACE-LOG[emit/clause-lst/context-subst-both]: context-subst (both vars) in rewrite-clause-lst
                                    (push (list :context-subst
-                                               :origin 'clause-lst/context-subst-both
+                                               :origin 'clause-lst/context-subst-both :equiv 'equal
                                                :variable rhs
                                                :value lhs
                                                :justification inner)
@@ -7852,7 +7852,7 @@
                                   ((variablep lhs)
                                    ; TRACE-LOG[emit/clause-lst/context-subst-lhs]: context-subst (lhs var) in rewrite-clause-lst
                                    (push (list :context-subst
-                                               :origin 'clause-lst/context-subst-lhs
+                                               :origin 'clause-lst/context-subst-lhs :equiv 'equal
                                                :variable lhs
                                                :value rhs
                                                :justification inner)
@@ -7860,7 +7860,7 @@
                                   ((variablep rhs)
                                    ; TRACE-LOG[emit/clause-lst/context-subst-rhs]: context-subst (rhs var) in rewrite-clause-lst
                                    (push (list :context-subst
-                                               :origin 'clause-lst/context-subst-rhs
+                                               :origin 'clause-lst/context-subst-rhs :equiv 'equal
                                                :variable rhs
                                                :value lhs
                                                :justification inner)
@@ -7889,7 +7889,7 @@
                              #-acl2-loop-only
                              (when (consp *structured-rewrite-log*)
                                (push (list :end-branch
-                                           :origin 'clause-lst/end-branch)
+                                           :origin 'clause-lst/end-branch :equiv 'equal)
                                      (cdr *structured-rewrite-log*)))
                              #+acl2-loop-only nil
                              (mv step-limit
