@@ -11999,6 +11999,10 @@
 ; EVERY admitted name — the shared structured-mode emitter called after
 ; install-event-defuns, covering both the singular DEFUN path and every member of a
 ; MUTUAL-RECURSION clique (which reaches defuns-fn directly, bypassing defun-fn).
+; For a RECURSIVE defun the event also carries the admission JUSTIFICATION
+; (:MEASURE term :WFREL rel :MEASURED formals-subset) read from the world —
+; the data the Lean replay needs to discharge total:fn hypotheses by
+; well-founded induction on the admitted measure (totality from admission).
 (defun emit-structured-defuns (names state)
   (declare (xargs :mode :program :stobjs state))
   (cond
@@ -12010,11 +12014,18 @@
              (formals (getpropc name 'formals nil (w state))))
         (cond
          ((null body) (emit-structured-defuns (cdr names) state))
-         (t (let* ((state
-                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2)~%"
+         (t (let* ((just (getpropc name 'justification nil (w state)))
+                   (state
+                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3)~%"
                          (list (cons #\0 name)
                                (cons #\1 formals)
-                               (cons #\2 body))
+                               (cons #\2 body)
+                               (cons #\3 (if just
+                                              (msg " :MEASURE ~x0 :WFREL ~x1 :MEASURED ~x2"
+                                                   (access justification just :measure)
+                                                   (access justification just :rel)
+                                                   (access justification just :subset))
+                                            "")))
                          (proofs-co state) state nil))
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
 ; basic type-set, IF-leaf type-sets) as proof data alongside its :DEFUN.
