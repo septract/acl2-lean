@@ -14328,6 +14328,8 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
 ; with #-acl2-loop-only raw code touching *structured-rewrite-log*) as program-fns-with-raw-code;
 ; each added entry is marked inline with `; *structured-rewrite-log*`.
   '(set-raw-proof-format-fn ; *structured-rewrite-log*
+    emit-structured-defuns ; *structured-termination-clauses*
+    prove-termination ; *structured-termination-clauses*
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*
     rewrite-fncall ; *structured-rewrite-log*

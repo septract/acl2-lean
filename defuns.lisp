@@ -1179,11 +1179,19 @@
    (cond ((and (not (ld-skip-proofsp state))
                t-machines)
           (clean-up-clause-set
-           (measure-clauses-for-clique names
-                                       t-machines
-                                       measure-alist
-                                       mp rel measure-debug
-                                       wrld)
+; TRACE-LOG[infra/termination-clauses]: capture the RAW measure clauses (the
+; complete per-call-site decrease obligations, before clean-up-clause-set can
+; drop trivially-true members) for the structured :DEFUN emission.
+           (let ((raw-cl-set (measure-clauses-for-clique names
+                                                         t-machines
+                                                         measure-alist
+                                                         mp rel measure-debug
+                                                         wrld)))
+             (prog2$
+              #-acl2-loop-only
+              (setq *structured-termination-clauses* (cons names raw-cl-set))
+              #+acl2-loop-only nil
+              raw-cl-set))
            ens
            wrld ttree state))
          (t (mv nil ttree)))
@@ -12008,15 +12016,32 @@
   (cond
    ((or (null names)
         (not (eq (f-get-global 'raw-proof-format state) :structured)))
-    state)
+; TRACE-LOG[infra/termination-clauses]: consume-once — the stash dies with the
+; clique whose emission it served (a stale stash could otherwise attach a
+; previous admission's obligations to a redefinition under skipped proofs).
+    (prog2$
+     #-acl2-loop-only (setq *structured-termination-clauses* nil)
+     #+acl2-loop-only nil
+     state))
    (t (let* ((name (car names))
              (body (body name t (w state)))
              (formals (getpropc name 'formals nil (w state))))
         (cond
          ((null body) (emit-structured-defuns (cdr names) state))
          (t (let* ((just (getpropc name 'justification nil (w state)))
+; TRACE-LOG[infra/termination-clauses]: read the stashed RAW measure clauses for
+; attachment to each recursive member's :DEFUN (the :TERMINATION-CLAUSES field
+; of the emit/defun event above) — the per-call-site decrease obligations the
+; Lean replay discharges per the DP-leaf carve-out.
+                   (term-clauses
+                    #-acl2-loop-only
+                    (and just
+                         (consp *structured-termination-clauses*)
+                         (member-eq name (car *structured-termination-clauses*))
+                         (cdr *structured-termination-clauses*))
+                    #+acl2-loop-only nil)
                    (state
-                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3)~%"
+                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3~@4)~%"
                          (list (cons #\0 name)
                                (cons #\1 formals)
                                (cons #\2 body)
@@ -12025,6 +12050,10 @@
                                                    (access justification just :measure)
                                                    (access justification just :rel)
                                                    (access justification just :subset))
+                                            ""))
+                               (cons #\4 (if (and just term-clauses)
+                                              (msg " :TERMINATION-CLAUSES ~x0"
+                                                   term-clauses)
                                             "")))
                          (proofs-co state) state nil))
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,

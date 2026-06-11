@@ -32,6 +32,17 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+; TRACE-LOG[infra/termination-clauses]: stash for the RAW measure clauses of the
+; clique being admitted — (names . cl-set), written by prove-termination
+; (defuns.lisp) before the admission proof, read by emit-structured-defuns
+; under a names-match guard and cleared on the non-recursive path. Carries the
+; complete per-call-site decrease obligations the Lean replay discharges
+; (totality from admission); the RAW set (pre clean-up-clause-set) is emitted
+; so no call site's obligation is lost to trivial-clause removal.
+#-acl2-loop-only
+(defvar *structured-termination-clauses* nil
+  "When non-nil, (names . raw-measure-clauses) for the clique being admitted.")
+
 ; TRACE-LOG[infra/rewrite-depth]: nesting depth guarding which rewrite-steps are logged
 ; (0 = literal level → logged; >0 = inside an unfold/RHS expansion → folded into the outer step).
 #-acl2-loop-only
