@@ -32,6 +32,48 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+; TRACE-LOG[infra/clausify-trace]: scope flag for the literal-clausify DECISION
+; TRACE — t only around rewrite-clause's clausify of a rewritten literal
+; (simplify.lisp), so the if-interp decision events (emit/if-interp/test,
+; emit/if-interp/leaf) and the set-reshaping markers fire there and NOWHERE
+; else (if-tautologyp, preprocess, guard and corollary clausifies stay
+; silent). Partial logging by design: the decision SKELETON is recorded, the
+; justifications (which assumption resolved a test, why a leaf folded to a
+; constant) are re-derived fail-closed by the replay
+; (docs/notes/2026-07-03_branch-split-spine.md).
+#-acl2-loop-only
+(defvar *clausify-trace* nil
+  "When non-nil, if-interp pushes literal-clausify decision events.")
+
+; TRACE-LOG[infra/clausify-trace-path]: the assumption path ABOVE the
+; :ignore-when-converting-to-clause marker (the tests split so far within the
+; literal being clausified), outermost-first, as (:t . test) / (:f . test)
+; conses — self-locating context for each decision event (immune to
+; if-interp's else-first evaluation order).
+#-acl2-loop-only
+(defun clausify-trace-path (assumptions)
+  (let (ans)
+    (loop
+     (cond ((or (null assumptions)
+                (eq (car assumptions) :ignore-when-converting-to-clause))
+            (return ans))
+           ((eq (car assumptions) :not)
+            (push (cons :f (cadr assumptions)) ans)
+            (setq assumptions (cddr assumptions)))
+           (t (push (cons :t (car assumptions)) ans)
+              (setq assumptions (cdr assumptions)))))))
+
+; TRACE-LOG[infra/clausify-trace-emit]: the guarded push for literal-clausify
+; decision events — fires only under *clausify-trace* with the structured log
+; active and pflg nil (an if-tautologyp-style counting run never emits).
+#-acl2-loop-only
+(defun clausify-trace-emit (plist pflg)
+  (when (and *clausify-trace*
+             (null pflg)
+             (consp *structured-rewrite-log*))
+    (push plist (cdr *structured-rewrite-log*)))
+  nil)
+
 ; TRACE-LOG[infra/termination-clauses]: stash for the RAW measure clauses of the
 ; clique being admitted — (names . cl-set), written by prove-termination
 ; (defuns.lisp) before the admission proof, read by emit-structured-defuns
@@ -3981,8 +4023,24 @@ its attachment is ignored during proofs"))))
       (cond
        ((quick-and-dirty-srs cl1 ac)
         (let ((ans (quick-and-dirty-subsumption-replacement-step cl1 ac)))
-          (cond ((eq ans 'subsumed1) ac)
-                (t (cons cl1 ans)))))
+          (prog2$
+           ; TRACE-LOG[emit/if-interp/satriani-fired]: fired-marker — the
+           ; Satriani hack RESHAPED the accumulating clause set (dropped the
+           ; new segment as subsumed, or deleted/replaced accumulated ones).
+           ; The step re-conses even when it changes nothing, so change is
+           ; detected by EQUAL. The replay hard-fails on this marker rather
+           ; than mis-attributing a reshaped segment set
+           ; (docs/notes/2026-07-03_branch-split-spine.md).
+           #-acl2-loop-only
+           (when (or (eq ans 'subsumed1) (not (equal ans ac)))
+             (clausify-trace-emit
+              (list :clausify-satriani
+                    :origin 'if-interp/satriani-fired :equiv 'equal
+                    :which (if (eq ans 'subsumed1) 'subsumed1 'replaced))
+              pflg))
+           #+acl2-loop-only nil
+           (cond ((eq ans 'subsumed1) ac)
+                 (t (cons cl1 ans))))))
        (t (cons cl1 ac)))))))
 
 (defun if-interp (instrs stack frame-ptr-stack assumptions ac pflg)
@@ -3999,16 +4057,40 @@ its attachment is ignored during proofs"))))
   (declare (type (or null #.*fixnat-type*) pflg))
   (cond ((null instrs)
          (let ((v (car stack)))
-           (or (cond ((quotep v)
-                      (cond ((equal v *nil*)
-                             (if-interp-add-clause assumptions nil ac pflg))
-                            (t ac)))
-                     (t (let ((assumed-val (if-interp-assumed-value v assumptions)))
-                          (cond ((eq assumed-val t) ac)
-                                ((eq assumed-val 'f)
-                                 (if-interp-add-clause assumptions nil ac pflg))
-                                (t (if-interp-add-clause assumptions (list v) ac pflg))))))
-               pflg)))
+           (prog2$
+            ; TRACE-LOG[emit/if-interp/leaf]: literal-clausify decision trace —
+            ; the LEAF of one assume-true-false path: its value, its path (the
+            ; tests split so far), and the outcome: DROPPED (a true leaf — a
+            ; call-stack constant fold or an assumed value; WHY it is true is
+            ; deliberately not recorded, the replay re-derives it fail-closed),
+            ; SEGMENT-FALSE (false leaf — the path's negations form the
+            ; segment), or SEGMENT-OPEN (unresolved leaf — it joins the
+            ; segment as a literal).
+            #-acl2-loop-only
+            (clausify-trace-emit
+             (list :clausify-leaf
+                   :origin 'if-interp/leaf :equiv 'equal
+                   :value v
+                   :outcome (cond ((quotep v)
+                                   (if (equal v *nil*) 'segment-false 'dropped))
+                                  (t (let ((av (if-interp-assumed-value
+                                                v assumptions)))
+                                       (cond ((eq av t) 'dropped)
+                                             ((eq av 'f) 'segment-false)
+                                             (t 'segment-open)))))
+                   :path (clausify-trace-path assumptions))
+             pflg)
+            #+acl2-loop-only nil
+            (or (cond ((quotep v)
+                       (cond ((equal v *nil*)
+                              (if-interp-add-clause assumptions nil ac pflg))
+                             (t ac)))
+                      (t (let ((assumed-val (if-interp-assumed-value v assumptions)))
+                           (cond ((eq assumed-val t) ac)
+                                 ((eq assumed-val 'f)
+                                  (if-interp-add-clause assumptions nil ac pflg))
+                                 (t (if-interp-add-clause assumptions (list v) ac pflg))))))
+                pflg))))
         ((and pflg (zpf pflg))
          0)
         (t (let ((caarinstrs (caar instrs))
@@ -4055,6 +4137,35 @@ its attachment is ignored during proofs"))))
                                 pflg))
                (test (let* ((v (car stack))
                             (stack (cdr stack)))
+                       (prog2$
+                        ; TRACE-LOG[emit/if-interp/test]: literal-clausify
+                        ; decision trace — one event per if-test decision:
+                        ; a CONSTANT test takes a branch outright; a test
+                        ; RESOLVED by the syntactic assumptions (exact or
+                        ; commutative equal/iff match, constant-distinctness,
+                        ; integerp/rationalp) takes a branch with no split —
+                        ; WHICH assumption resolved it is deliberately not
+                        ; recorded (the replay re-derives it fail-closed);
+                        ; otherwise SPLIT into both branches (the else branch
+                        ; is evaluated first — events self-locate by :path).
+                        #-acl2-loop-only
+                        (clausify-trace-emit
+                         (let ((av (and (not (quotep v))
+                                        (if-interp-assumed-value v assumptions))))
+                           (list :clausify-test
+                                 :origin 'if-interp/test :equiv 'equal
+                                 :test v
+                                 :verdict (cond ((quotep v)
+                                                 (if (equal v *nil*) 'false 'true))
+                                                ((eq av 'f) 'false)
+                                                ((eq av t) 'true)
+                                                (t 'split))
+                                 :how (cond ((quotep v) 'constant)
+                                            (av 'assumed)
+                                            (t 'split))
+                                 :path (clausify-trace-path assumptions)))
+                         pflg)
+                        #+acl2-loop-only nil
                        (cond ((quotep v)
                               (cond ((equal v *nil*)
                                      (if-interp (cdr (car instrs))
@@ -4122,7 +4233,7 @@ its attachment is ignored during proofs"))))
                                                             (if-interp-switch assumptions)
                                                             ac
                                                             pflg)
-                                                 pflg))))))))))))))
+                                                 pflg)))))))))))))))
 
 (defun splice-instrs1 (instrs ans alist)
   (declare (xargs :guard (instr-listp instrs)))
@@ -4623,12 +4734,28 @@ its attachment is ignored during proofs"))))
                   (strip-branches term assumptions lambda-exp))))
     (cond
      ((or (null sr-limit) (<= (length clauses) sr-limit))
-      (pstk
-       (subsumption-replacement-loop
-        (merge-sort-length
-         clauses)
-        nil
-        nil)))
+      (let ((ans (pstk
+                  (subsumption-replacement-loop
+                   (merge-sort-length
+                    clauses)
+                   nil
+                   nil))))
+        (prog2$
+         ; TRACE-LOG[emit/clausify/subsumption-loop-fired]: fired-marker — the
+         ; general subsumption-replacement-loop CHANGED the clause set beyond
+         ; reordering (merge-sort-length reorders; content is compared as a
+         ; set). The replay hard-fails on this marker rather than
+         ; mis-attributing a reshaped segment set
+         ; (docs/notes/2026-07-03_branch-split-spine.md).
+         #-acl2-loop-only
+         (unless (and (subsetp-equal ans clauses)
+                      (subsetp-equal clauses ans))
+           (clausify-trace-emit
+            (list :clausify-subsumption-loop
+                  :origin 'clausify/subsumption-loop-fired :equiv 'equal)
+            nil))
+         #+acl2-loop-only nil
+         ans)))
      (t clauses))))
 
 ; Now we get into the immediate subroutines of rewrite itself.

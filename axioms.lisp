@@ -14346,6 +14346,9 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-atm ; *structured-rewrite-log*
     rewrite-clause ; *structured-rewrite-log*
     rewrite-clause-lst ; *structured-rewrite-log*
+    clausify ; *structured-rewrite-log* (clausify-trace)
+    if-interp ; *structured-rewrite-log* (clausify-trace)
+    if-interp-add-clause ; *structured-rewrite-log* (clausify-trace)
     scons-term ; *structured-rewrite-log*
     remove-trivial-equivalences-rec ; *structured-rewrite-log*
     rewrite ; *structured-rewrite-log*

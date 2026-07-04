@@ -7540,6 +7540,23 @@
                                     :result val)
                               (cdr *structured-rewrite-log*)))
                       #+acl2-loop-only nil
+                      ; TRACE-LOG[infra/clausify-trace-scope]: bind the
+                      ; literal-clausify decision-trace flag around THIS
+                      ; clausify only (the rewritten literal's split — the
+                      ; branches rewrite-clause-lst iterates); the bad-ass
+                      ; rollback re-clausify below and every other clausify in
+                      ; the prover stay untraced.
+                      #-acl2-loop-only
+                      (let ((*clausify-trace* t))
+                        (pstk
+                         (clausify val
+                                   (convert-clause-to-assumptions
+                                    (cdr tail)
+                                    (convert-clause-to-assumptions
+                                     new-clause nil))
+                                   nil
+                                   sr-limit)))
+                      #+acl2-loop-only
                       (pstk
                        (clausify val
                                  (convert-clause-to-assumptions
