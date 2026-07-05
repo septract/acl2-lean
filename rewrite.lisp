@@ -19920,8 +19920,32 @@ its attachment is ignored during proofs"))))
                            rune
                            ((the #.*fixnum-type* step-limit) flg term ttree)
                            flg
+; TRACE-LOG[infra/hyp-log-tail]: checkpoint the rewrite-log tail before
+; HYPOTHESIS RELIEF, and bracket the relief's rewrite events as an inner
+; block (:KIND HYP) so they become CHILDREN of the eventual with-lemma node
+; (they are its justification). A FAILED relief rolls the log back to the
+; checkpoint — abandoned backchaining must not surface as top-level chain
+; steps (it broke the perm-transitive replay: a rejected perm-symmetric
+; attempt's hyp rewrite leaked as a literal-level node). The checkpoint is
+; tagged (cons t tail) so an empty tail still restores.
+                           (let #-acl2-loop-only
+                                ((saved-hyp-log-tail
+                                  (when (consp *structured-rewrite-log*)
+                                    (cons t (cdr *structured-rewrite-log*)))))
+                                #+acl2-loop-only ()
                            (sl-let
                             (relieve-hyps-ans failure-reason unify-subst ttree)
+                            (prog2$
+                             ; TRACE-LOG[emit/with-lemma/begin-hyps]: open the HYP inner block
+                             #-acl2-loop-only
+                             (when (consp *structured-rewrite-log*)
+                               (incf *structured-rewrite-depth*)
+                               (push (list :begin-inner-rewrite
+                                           :origin 'with-lemma/begin-hyps
+                                           :equiv 'equal
+                                           :kind 'hyp)
+                                     (cdr *structured-rewrite-log*)))
+                             #+acl2-loop-only nil
                             (rewrite-entry
                              (relieve-hyps
                               rune
@@ -19943,11 +19967,24 @@ its attachment is ignored during proofs"))))
                              :obj nil         ; ignored
                              :geneqv nil      ; ignored
                              :pequiv-info nil ; ignored
-                             )
+                             ))
                             (cond
                              (relieve-hyps-ans
                               (sl-let
                                (rewritten-rhs ttree)
+                               (prog2$
+                                ; TRACE-LOG[emit/with-lemma/end-hyps]: close the HYP inner
+                                ; block (relief SUCCEEDED — its events become the
+                                ; with-lemma node's children)
+                                #-acl2-loop-only
+                                (when (consp *structured-rewrite-log*)
+                                  (decf *structured-rewrite-depth*)
+                                  (push (list :end-inner-rewrite
+                                              :origin 'with-lemma/end-hyps
+                                              :equiv 'equal
+                                              :kind 'hyp)
+                                        (cdr *structured-rewrite-log*)))
+                                #+acl2-loop-only nil
                                (with-accumulated-persistence
                                 rune
                                 ((the #.*fixnum-type* step-limit)
@@ -19963,7 +20000,7 @@ its attachment is ignored during proofs"))))
                                   unify-subst
                                   'rhs))
                                 :conc
-                                (access rewrite-rule lemma :hyps))
+                                (access rewrite-rule lemma :hyps)))
                                (progn$
                                 (brkpt2 t nil unify-subst gstack rewritten-rhs
                                         ttree rcnst ancestors state)
@@ -20005,7 +20042,18 @@ its attachment is ignored during proofs"))))
                                  (brkpt2 nil failure-reason
                                          unify-subst gstack nil nil
                                          rcnst ancestors state)
-                                 (mv step-limit nil term ttree)))))))))
+                                 (prog2$
+                                  ; TRACE-LOG[infra/hyp-log-tail]: roll back the HYP
+                                  ; inner block (relief FAILED — abandoned
+                                  ; backchaining leaves no trace)
+                                  #-acl2-loop-only
+                                  (when (and (consp *structured-rewrite-log*)
+                                             saved-hyp-log-tail)
+                                    (decf *structured-rewrite-depth*)
+                                    (setf (cdr *structured-rewrite-log*)
+                                          (cdr saved-hyp-log-tail)))
+                                  #+acl2-loop-only nil
+                                  (mv step-limit nil term ttree)))))))))))
                        (t (progn$
                            (near-miss-brkpt1 lemma term type-alist geneqv
                                              ancestors ttree
