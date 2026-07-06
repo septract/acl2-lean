@@ -20764,10 +20764,30 @@ its attachment is ignored during proofs"))))
                    (sl-let (final-term ttree)
                            (rewrite-entry (rewrite new-term alist 'expansion)
                                           :ttree (push-lemma? rune ttree))
-                           (mv step-limit
-                               final-term
-                               (push-splitter? rune ttree rcnst ancestors
-                                               new-term final-term)))))
+                           (progn$
+                            ; TRACE-LOG[emit/fncall/expand-permission]: rewrite-step
+                            ; (definition) for an UNGUARDED permitted expansion (:expand
+                            ; hints — incl. the induction machinery's forced unfolds of
+                            ; the measured calls). Same shape as the three rewrite-fncall
+                            ; keep-arm emits: lhs = the call, rhs = the rewritten body,
+                            ; subst = formals→args; without it the KIND EXPANSION inner
+                            ; block is an orphan (recorded aftermath, missing act) and
+                            ; the replay hard-fails on its residual boundary frame.
+                            #-acl2-loop-only
+                            (when (consp *structured-rewrite-log*)
+                              (push (list :rewrite-step
+                            :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                                          :rune rune
+                                          :origin 'fncall/expand-permission :equiv 'equal
+                                          :lhs term
+                                          :rhs final-term
+                                          :subst alist)
+                                    (cdr *structured-rewrite-log*)))
+                            #+acl2-loop-only nil
+                            (mv step-limit
+                                final-term
+                                (push-splitter? rune ttree rcnst ancestors
+                                                new-term final-term))))))
                  (t (prepend-step-limit
                      2
                      (rewrite-solidify term type-alist obj geneqv

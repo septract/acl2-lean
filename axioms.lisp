@@ -14332,6 +14332,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     prove-termination ; *structured-termination-clauses*
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*
+    rewrite-with-lemmas ; *structured-rewrite-log* (expand-permission emission)
     rewrite-fncall ; *structured-rewrite-log*
     expand-abbreviations-with-lemma ; *structured-rewrite-log*
     expand-abbreviations ; *structured-rewrite-log*
