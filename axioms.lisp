@@ -14347,6 +14347,8 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-clause ; *structured-rewrite-log*
     rewrite-clause-lst ; *structured-rewrite-log*
     clausify ; *structured-rewrite-log* (clausify-trace)
+    create-rewrite-rule ; *structured-rules* (rule emission)
+    defthm-fn1 ; *structured-rules* (rule-event flush)
     if-interp ; *structured-rewrite-log* (clausify-trace)
     if-interp-add-clause ; *structured-rewrite-log* (clausify-trace)
     scons-term ; *structured-rewrite-log*

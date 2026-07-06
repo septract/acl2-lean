@@ -769,6 +769,24 @@
                         (or (loop-stopper lhs rhs)
                             (and (not (equal lhs0 lhs))
                                  (loop-stopper lhs0 rhs))))))
+    (progn$
+     ; TRACE-LOG[emit/rule]: record the STORED rule's content (the normalized
+     ; hyps/equiv/lhs/rhs ACL2 will actually apply — which can differ from
+     ; the defthm formula: implies-flattening, iff→equal strengthening under
+     ; a known-boolean conclusion, and-splitting). Accumulated raw
+     ; (*structured-rules*) and flushed as top-level (:RULES …) events at the
+     ; next :DEFTHM emission; the replay's rule:<thm> hypotheses state
+     ; exactly this (docs/plans/2026-07-05_theorem-dependency-hypotheses.md).
+     ; Scoped to genuine NAMED :REWRITE runes: chk-acceptable-time candidate
+     ; rules carry *fake-rune-for-anonymous-enabled-rule* (name nil) and are
+     ; never stored in the world — they are not rules a proof can cite.
+     #-acl2-loop-only
+     (when (and (consp *structured-rewrite-log*)
+                (consp rune)
+                (eq (car rune) :rewrite)
+                (cadr rune))
+       (push (list rune hyps equiv lhs rhs) *structured-rules*))
+     #+acl2-loop-only nil
     (make rewrite-rule
           :rune rune
           :nume nume
@@ -798,7 +816,7 @@
 
           :backchain-limit-lst
           (rule-backchain-limit-lst backchain-limit-lst hyps wrld :rewrite)
-          :match-free match-free-value)))
+          :match-free match-free-value))))
 
 ; The next subsection of our code develops various checkers to help the
 ; user manage his collection of rules.
@@ -12188,6 +12206,23 @@
                    (ignore
                     (if (eq (f-get-global 'raw-proof-format state) :structured)
                         (pprogn
+                         ; TRACE-LOG[emit/rules]: flush the rewrite rules created
+                         ; since the last flush (see emit/rule /
+                         ; infra/structured-rules) as ONE top-level
+                         ; (:RULES ((rune hyps equiv lhs rhs) …)) event, in
+                         ; creation order, BEFORE this theorem's :DEFTHM —
+                         ; any use of those rules occurs in this or a later
+                         ; proof. Terms are emitted TRANSLATED (the internal
+                         ; forms the replay consumes).
+                         (prog2$
+                          #-acl2-loop-only
+                          (when *structured-rules*
+                            (fms "(:RULES ~x0)~%"
+                                 (list (cons #\0 (reverse *structured-rules*)))
+                                 (proofs-co state) state nil)
+                            (setq *structured-rules* nil))
+                          #+acl2-loop-only nil
+                          state)
                          (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2)~%"
                               (list (cons #\0 name)
                                     (cons #\1 (untranslate tterm0 t wrld))

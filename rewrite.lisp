@@ -32,6 +32,19 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+; TRACE-LOG[infra/structured-rules]: stash for the REWRITE rules created since
+; the last flush — one (name hyps equiv lhs rhs) entry per stored rule, pushed
+; by create-rewrite-rule (a raw side effect; pure in the logic) and printed as
+; top-level (:RULE …) events by the next :DEFTHM emission. Ordering is safe:
+; a rule installs at the END of its defthm and any USE occurs in a LATER
+; theorem's proof, which is always preceded by its own :DEFTHM emission.
+; The replay's rule:<thm> hypotheses state EXACTLY these stored rules
+; (docs/plans/2026-07-05_theorem-dependency-hypotheses.md) — never a
+; Lean-side re-derivation of ACL2's rule normalization.
+#-acl2-loop-only
+(defvar *structured-rules* nil
+  "When :structured mode is active, accumulates created rewrite rules.")
+
 ; TRACE-LOG[infra/clausify-trace]: scope flag for the literal-clausify DECISION
 ; TRACE — t only around rewrite-clause's clausify of a rewritten literal
 ; (simplify.lisp), so the if-interp decision events (emit/if-interp/test,
