@@ -14333,6 +14333,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     waterfall-msg1 ; *structured-rewrite-log*
     rewrite-with-lemma ; *structured-rewrite-log*
     rewrite-with-lemmas ; *structured-rewrite-log* (expand-permission emission)
+    relieve-hyp ; *structured-rewrite-log* (silent hyp-relief markers)
     rewrite-fncall ; *structured-rewrite-log*
     expand-abbreviations-with-lemma ; *structured-rewrite-log*
     expand-abbreviations ; *structured-rewrite-log*

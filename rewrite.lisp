@@ -18480,7 +18480,22 @@ its attachment is ignored during proofs"))))
 
                          (cond
                           (lookup-hyp-ans
-                           (mv step-limit t nil unify-subst ttree))
+                           (progn$
+                            ; TRACE-LOG[emit/relieve-hyp/type-alist]: a hyp relieved
+                            ; SILENTLY by a type-alist lookup (search-type-alist under
+                            ; lookup-hyp) — no rewrite events exist, so without this
+                            ; marker the proof tree records nothing about WHY the rule
+                            ; applied. ACL2's justification is the clause context (all
+                            ; other literals assumed false); the replay hoists the
+                            ; matching literal's case split from this marker.
+                            #-acl2-loop-only
+                            (when (consp *structured-rewrite-log*)
+                              (push (list :hyp-relief
+                                          :origin 'relieve-hyp/type-alist :equiv 'equal
+                                          :hyp (sublis-var unify-subst hyp))
+                                    (cdr *structured-rewrite-log*)))
+                            #+acl2-loop-only nil
+                            (mv step-limit t nil unify-subst ttree)))
                           (t
                            (let* ((inst-hyp (sublis-var unify-subst hyp))
                                   (forcer-fn (and forcep1 (ffn-symb hyp0)))
@@ -18506,18 +18521,44 @@ its attachment is ignored during proofs"))))
                                       unify-subst
                                       ttree))
                                  (t
-                                  (mv step-limit
-                                      t
-                                      nil
-                                      unify-subst
-                                      nilp-ttree))))
+                                  (progn$
+                                   ; TRACE-LOG[emit/relieve-hyp/known-true]: a hyp
+                                   ; relieved SILENTLY by type-set under the clause
+                                   ; type-alist (known-whether-nil) — same marker
+                                   ; rationale as emit/relieve-hyp/type-alist.
+                                   #-acl2-loop-only
+                                   (when (consp *structured-rewrite-log*)
+                                     (push (list :hyp-relief
+                                                 :origin 'relieve-hyp/known-true
+                                                 :equiv 'equal
+                                                 :hyp inst-hyp)
+                                           (cdr *structured-rewrite-log*)))
+                                   #+acl2-loop-only nil
+                                   (mv step-limit
+                                       t
+                                       nil
+                                       unify-subst
+                                       nilp-ttree)))))
                                (t
                                 (mv-let
                                  (on-ancestorsp assumed-true)
                                  (ancestors-check inst-hyp ancestors (list rune))
                                  (cond
                                   ((and on-ancestorsp assumed-true)
-                                   (mv step-limit t nil unify-subst ttree))
+                                   (progn$
+                                    ; TRACE-LOG[emit/relieve-hyp/ancestors]: a hyp
+                                    ; relieved SILENTLY because it is already assumed
+                                    ; on the backchain ancestors stack — same marker
+                                    ; rationale as emit/relieve-hyp/type-alist.
+                                    #-acl2-loop-only
+                                    (when (consp *structured-rewrite-log*)
+                                      (push (list :hyp-relief
+                                                  :origin 'relieve-hyp/ancestors
+                                                  :equiv 'equal
+                                                  :hyp inst-hyp)
+                                            (cdr *structured-rewrite-log*)))
+                                    #+acl2-loop-only nil
+                                    (mv step-limit t nil unify-subst ttree)))
                                   ((or on-ancestorsp ; and (not assumed-true)
                                        (backchain-limit-reachedp
                                         backchain-limit
