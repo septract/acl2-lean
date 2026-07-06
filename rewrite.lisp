@@ -20428,11 +20428,14 @@ its attachment is ignored during proofs"))))
 ; If the expansion is rejected (too-many-ifs or rewrite-fncallp failure),
 ; we roll back the log to discard the speculative inner events.  Only
 ; committed (successful) expansion steps appear in the proof trace.
+; The checkpoint is tagged (cons t tail) so an EMPTY tail (log had exactly
+; one entry) still restores — same hardening as the hyp-relief checkpoint
+; above (fail-closed audit 2026-07-06, N7).
 
                         (let #-acl2-loop-only
                              ((saved-log-tail
                                (when (consp *structured-rewrite-log*)
-                                 (cdr *structured-rewrite-log*))))
+                                 (cons t (cdr *structured-rewrite-log*)))))
                              #+acl2-loop-only ()
                         (sl-let
                          (rewritten-body new-ttree1)
@@ -20467,7 +20470,7 @@ its attachment is ignored during proofs"))))
                                 (when (and (consp *structured-rewrite-log*)
                                            saved-log-tail)
                                   (setf (cdr *structured-rewrite-log*)
-                                        saved-log-tail))
+                                        (cdr saved-log-tail)))
                                 #+acl2-loop-only nil
                                 (prepend-step-limit
                                  2
@@ -20645,7 +20648,7 @@ its attachment is ignored during proofs"))))
                                 (when (and (consp *structured-rewrite-log*)
                                            saved-log-tail)
                                   (setf (cdr *structured-rewrite-log*)
-                                        saved-log-tail))
+                                        (cdr saved-log-tail)))
                                 #+acl2-loop-only nil
                                 (prepend-step-limit
                                  2
