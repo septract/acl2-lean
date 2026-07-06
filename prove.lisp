@@ -2692,6 +2692,15 @@
                     (eq processor 'generalize-clause))
                (msg " :GENERALIZE (:TERMS ~x0 :VARS ~x1)"
                     gen-terms gen-vars))
+              ; (Part of emit/step:) a PUSH-CLAUSE step names the pool root it
+              ; creates (*1.1.1 …) — pop-clause later CONSIDERS pool entries in
+              ; its own (subsumption-reordered) order, so the push→induction
+              ; pairing needs the name, not adjacency (the (:POOL-CONSIDER …)
+              ; events carry the same names).
+              ((and (eq processor 'push-clause)
+                    (not (eq signal 'abort)))
+               (msg " :POOLNAME ~x0"
+                    (pool-lst (cdr (access prove-spec-var pspv :pool)))))
               (t ""))))
        (fms "(:STEP :CLAUSEID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6~@7)~%"
             (list (cons #\0 cl-id-str)
@@ -7682,10 +7691,27 @@
               (io? prove nil state
                    (prev-action forcing-round pool-lst entry cl-id jppl-flg
                                 gag-state)
-; TRACE-LOG[suppress/pop-clause]: suppress the pop-clause / "we now return to" prose in
-; :structured mode.
+; In :structured mode, replace the pop-clause prose with structured POOL
+; events — the pool's processing ORDER (subsumption-reordered vs push order)
+; and pool-subsumption discharges are otherwise invisible to the proof log.
+; (Replaces the former suppress/pop-clause bare suppression.)
                    (if (eq (f-get-global 'raw-proof-format state) :structured)
-                       state
+                       (case-match
+                        entry
+                        (('subsumed-below & pool-lst2 subsumer-pool-lst)
+                         ; TRACE-LOG[emit/pool-subsumed]: *P regarded as proved
+                         ; pending the MORE GENERAL *Q (pool subsumption).
+                         (fms "(:POOL-SUBSUMED :NAME ~x0 :BY ~x1)~%"
+                              (list (cons #\0 pool-lst2)
+                                    (cons #\1 subsumer-pool-lst))
+                              (proofs-co state) state nil))
+                        (('consider & pool-lst2)
+                         ; TRACE-LOG[emit/pool-consider]: the following steps /
+                         ; induction belong to pool root *P.
+                         (fms "(:POOL-CONSIDER :NAME ~x0)~%"
+                              (list (cons #\0 pool-lst2))
+                              (proofs-co state) state nil))
+                        (& state))
                    (let* ((cl-set (cadr entry))
                           (jppl-flg (if (gag-mode)
                                         (gag-mode-jppl-flg gag-state)
