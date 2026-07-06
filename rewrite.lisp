@@ -19066,8 +19066,23 @@ its attachment is ignored during proofs"))))
                                            rw-cache-alist-new)))
           (cond
            (relieve-hyps-ans
-            (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
-                rw-cache-alist-new))
+            (progn$
+             ; TRACE-LOG[emit/relieve-hyp/free-type-alist]: a FREE-VARIABLE hyp
+             ; relieved by the type-alist search (search-type-alist+ extended
+             ; unify-subst) — silent like the ground relieve-hyp arms, PLUS it
+             ; binds the rule's free variables (the node's :SUBST records the
+             ; extension). Emitted only here, where the WHOLE remaining-hyps
+             ; continuation succeeded under this binding, so internal
+             ; backtracking can never leave a stale marker.
+             #-acl2-loop-only
+             (when (consp *structured-rewrite-log*)
+               (push (list :hyp-relief
+                           :origin 'relieve-hyp/free-type-alist :equiv 'equal
+                           :hyp (sublis-var new-unify-subst hyp))
+                     (cdr *structured-rewrite-log*)))
+             #+acl2-loop-only nil
+             (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
+                 rw-cache-alist-new)))
            (t
             (let ((rw-cache-alist-new ; add normal-failure reason
                    (rw-cache-add-failure-reason rcnst
@@ -19204,9 +19219,23 @@ its attachment is ignored during proofs"))))
                         inferior-rw-cache-alist-new
                         rw-cache-alist-new)))
                   (cond (relieve-hyps-ans
-                         (mv step-limit relieve-hyps-ans
-                             nil ; failure-reason-lst
-                             unify-subst1 ttree1 allp rw-cache-alist-new))
+                         (progn$
+                          ; TRACE-LOG[emit/relieve-hyp/ground-unit]: a free-var
+                          ; hyp fully bound and relieved via the ground-unit
+                          ; search path — same continuation-success placement
+                          ; as emit/relieve-hyp/free-type-alist.
+                          #-acl2-loop-only
+                          (when (consp *structured-rewrite-log*)
+                            (push (list :hyp-relief
+                                        :origin 'relieve-hyp/ground-unit
+                                        :equiv 'equal
+                                        :hyp (sublis-var fully-bound-unify-subst
+                                                         hyp))
+                                  (cdr *structured-rewrite-log*)))
+                          #+acl2-loop-only nil
+                          (mv step-limit relieve-hyps-ans
+                              nil ; failure-reason-lst
+                              unify-subst1 ttree1 allp rw-cache-alist-new)))
                         (t
                          (mv step-limit nil
                              (and (f-get-global 'gstackp state) ; cons optimization
@@ -19263,8 +19292,21 @@ its attachment is ignored during proofs"))))
                                                rw-cache-alist-new)))
               (cond
                (relieve-hyps-ans
-                (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
-                    rw-cache-alist-new))
+                (progn$
+                 ; TRACE-LOG[emit/relieve-hyp/ground-unit-search]: a free-var
+                 ; hyp relieved by search-ground-units1 (unify-subst extended
+                 ; from a ground unit) — same continuation-success placement
+                 ; as emit/relieve-hyp/free-type-alist.
+                 #-acl2-loop-only
+                 (when (consp *structured-rewrite-log*)
+                   (push (list :hyp-relief
+                               :origin 'relieve-hyp/ground-unit-search
+                               :equiv 'equal
+                               :hyp (sublis-var new-unify-subst hyp))
+                         (cdr *structured-rewrite-log*)))
+                 #+acl2-loop-only nil
+                 (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
+                     rw-cache-alist-new)))
                (t
                 (let ((rw-cache-alist-new ; add normal-failure reason
                        (rw-cache-add-failure-reason rcnst

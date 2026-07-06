@@ -14334,6 +14334,8 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-with-lemma ; *structured-rewrite-log*
     rewrite-with-lemmas ; *structured-rewrite-log* (expand-permission emission)
     relieve-hyp ; *structured-rewrite-log* (silent hyp-relief markers)
+    relieve-hyps1-free-1 ; *structured-rewrite-log* (free-var hyp-relief marker)
+    relieve-hyps1-free-2 ; *structured-rewrite-log* (ground-unit hyp-relief markers)
     rewrite-fncall ; *structured-rewrite-log*
     expand-abbreviations-with-lemma ; *structured-rewrite-log*
     expand-abbreviations ; *structured-rewrite-log*
