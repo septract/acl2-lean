@@ -112,18 +112,34 @@
 ; per 'rewrite frame, literal-root-first: BKPTR is the one-based argument position
 ; of that frame's term in its parent, FN the function symbol of that term. The
 ; driver uses this to emit congruence (arg index → which congruence lemma) instead
-; of locating the redex by subterm match. NOTE: relies on the gframe layout
-; `(sys-fn bkptr . args)` with args = `(term alist obj . ...)` (defrec gframe,
-; rewrite.lisp); accessed with raw car/cdr so this can sit before that defrec.
+; of locating the redex by subterm match. A 'rewrite frame whose PARENT frame is
+; rewrite-with-lemma is HYPOTHESIS RELIEF (relieve-hyp rewrites hyp i with a
+; numeric bkptr = the hyp index): its frame is a RULE BOUNDARY, not an argument
+; descent, so it is emitted with the symbolic bkptr HYP (the parser maps symbolic
+; bkptrs to boundary frames, like a definition's BODY). NOTE: relies on the
+; gframe layout `(sys-fn bkptr . args)` with args = `(term alist obj . ...)`
+; (defrec gframe, rewrite.lisp); accessed with raw car/cdr so this can sit
+; before that defrec.
 #-acl2-loop-only
 (defun structured-rewrite-path ()
-  (let ((path nil))
-    (dolist (fr *deep-gstack* path)
-      (when (eq (car fr) 'rewrite)          ; sys-fn
-        (let* ((bkptr (cadr fr))
-               (term (caddr fr))            ; (car args)
-               (fn (if (consp term) (car term) term)))
-          (push (cons bkptr fn) path))))))
+  (let ((path nil) (tail *deep-gstack*))
+    (loop while tail do
+          (let ((fr (car tail)))
+            (when (eq (car fr) 'rewrite)    ; sys-fn
+              (let* ((bkptr (cadr fr))
+                     (term (caddr fr))      ; (car args)
+                     (fn (if (consp term) (car term) term))
+                     (parent (cadr tail))   ; the OUTER frame (stack is innermost-first)
+                     (bk (if (and (integerp bkptr) ; symbolic (e.g. RHS) stays
+                                  (consp parent)
+                                  (member (car parent)
+                                          '(rewrite-with-lemma
+                                            rewrite-quoted-constant-with-lemma)))
+                             'hyp
+                           bkptr)))
+                (push (cons bk fn) path))))
+          (setq tail (cdr tail)))
+    path))
 
 ; We introduce ev-fncall+ early in this file to support its use in the
 ; definition of scons-term.
