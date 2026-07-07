@@ -12051,10 +12051,21 @@
                                                    (access justification just :rel)
                                                    (access justification just :subset))
                                             ""))
-                               (cons #\4 (if (and just term-clauses)
-                                              (msg " :TERMINATION-CLAUSES ~x0"
-                                                   term-clauses)
-                                            "")))
+                               (cons #\4 (cond
+                                          ((and just term-clauses)
+                                           (msg " :TERMINATION-CLAUSES ~x0"
+                                                term-clauses))
+; (part of the emit/defun event above) an INCLUDE-BOOK'd recursive defun
+; re-emits its justification but ACL2 does not re-run admission, so no
+; termination clauses exist to stash — mark it :INCLUDED T so the parser can
+; distinguish this legitimate absence from a truncated capture (which stays
+; a hard parse failure). The replay keeps such fns' total: hypotheses (D6)
+; until the termination-machine recomputation emission lands (R2 follow-up).
+                                          ((and just
+                                                (global-val 'include-book-path
+                                                            (w state)))
+                                           " :INCLUDED T")
+                                          (t ""))))
                          (proofs-co state) state nil))
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
 ; basic type-set, IF-leaf type-sets) as proof data alongside its :DEFUN.
