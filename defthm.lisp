@@ -12283,6 +12283,27 @@
                   (er-progn
                    (chk-assumption-free-ttree ttree4 ctx state)
                    (print-rule-storage-dependencies name ttree1 state)
+                   ; TRACE-LOG[emit/rules]: flush THIS theorem's stored rewrite
+                   ; rules (pushed by create-rewrite-rule during the add-rules
+                   ; just above) as a top-level (:RULES …) event as soon as the
+                   ; theorem completes, so a book's LAST theorem's rules reach
+                   ; its own log (external-knowledge design §D8, audit finding
+                   ; C — load-bearing for cross-book rule reading, D7). The
+                   ; pre-:DEFTHM flush at the :DEFTHM emission above remains as
+                   ; a backstop for rules created by non-defthm events; in the
+                   ; flat event stream both flush points sit between the same
+                   ; theorem blocks, so replay association is unchanged.
+                   (prog2$
+                    #-acl2-loop-only
+                    (when (and (eq (f-get-global 'raw-proof-format state)
+                                   :structured)
+                               *structured-rules*)
+                      (fms "(:RULES ~x0)~%"
+                           (list (cons #\0 (reverse *structured-rules*)))
+                           (proofs-co state) state nil)
+                      (setq *structured-rules* nil))
+                    #+acl2-loop-only nil
+                    (value nil))
                    (install-event name
                                   event-form
                                   'defthm

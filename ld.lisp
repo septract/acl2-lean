@@ -5214,7 +5214,12 @@
 ; TRACE-LOG[emit/begin-proof-log]: emit the (:BEGIN-PROOF-LOG) marker that opens the
 ; proof-log stream (and activate the rewrite-step accumulator *structured-rewrite-log*).
       (prog2$
-       #-acl2-loop-only (setq *structured-rewrite-log* (list :active))
+       #-acl2-loop-only
+       (progn (setq *structured-rewrite-log* (list :active))
+              ; TRACE-LOG[infra/cited-symbols]: activate the printed-symbol
+              ; collector for the ground-zero snapshot emission (D3/D5; the
+              ; defvar and prin1$ hook live in axioms.lisp).
+              (setq *structured-cited-symbols* (make-hash-table :test 'eq)))
        #+acl2-loop-only nil
        (fms "(:BEGIN-PROOF-LOG)~%" nil (proofs-co state) state nil))))
     (t
@@ -5223,12 +5228,286 @@
      (pprogn
       (f-put-global 'gstackp nil state)
       (prog2$
-       #-acl2-loop-only (setq *structured-rewrite-log* nil)
+       #-acl2-loop-only
+       (progn (setq *structured-rewrite-log* nil)
+              ; TRACE-LOG[infra/cited-symbols]: deactivate the collector when
+              ; leaving structured mode (paired with the activation above).
+              (setq *structured-cited-symbols* nil))
        #+acl2-loop-only nil
        state))))))
 
 (defmacro set-raw-proof-format (val)
   `(set-raw-proof-format-fn ,val state))
+
+; TRACE-LOG[infra/ground-zero-snapshot]: pure-world helpers for the cited
+; ground-zero snapshot emission (external-knowledge design D3/D5). The
+; capture script calls (emit-ground-zero-snapshots state) after the book's
+; ld completes; the cited-symbol set comes from the prin1$ collector
+; (axioms.lisp, infra/cited-symbols). Everything here READS the world and
+; emits — no inference: bodies/justifications come off the world verbatim,
+; and termination clauses are RECOMPUTED by the same generators the live
+; admission path uses (termination-theorem-clauses — the R2b-ratified
+; "deterministic recomputation = emission" argument, design D3/D6).
+
+(defun gz-snapshot-defun-p (s wrld)
+; s names a ground-zero LOGIC-mode function with a definitional body.
+; Body-less predefined fns (CAR, CONS, EQUAL, … — the axiomatic
+; primitives) are closure LEAVES: there is no defun to snapshot, and the
+; Lean side models them as callBuiltin primitives (design D4's overlap
+; set is the defun-HAVING builtins, e.g. LEN/TRUE-LISTP).
+  (declare (xargs :mode :program))
+  (and (symbolp s)
+       s
+       (function-symbolp s wrld)
+       (getpropc s 'predefined nil wrld)
+       (not (eq (symbol-class s wrld) :program))
+       (and (body s t wrld) t)))
+
+(defun gz-termination-clauses (names wrld)
+; Recompute the RAW admission decrease clauses for a recursive ground-zero
+; clique, exactly as termination-theorem (history-management.lisp) does —
+; same generators, same inputs read off the world — but keeping the raw
+; clause set (no termify), the shape the live emit/defun path stashes.
+; Fail-closed: a clique this cannot serve is a hard error, never a
+; silently clause-less snapshot.
+  (declare (xargs :mode :program))
+  (let* ((just (getpropc (car names) 'justification nil wrld))
+         (measure-alist (and just (measure-alist? names wrld))))
+    (cond
+     ((null just)
+      (er hard 'emit-ground-zero-snapshots
+          "ground-zero clique ~x0 is recursive but has no justification"
+          names))
+     ((access justification just :subversive-p)
+      (er hard 'emit-ground-zero-snapshots
+          "ground-zero clique ~x0 is subversive — no reusable termination ~
+           theorem exists"
+          names))
+     ((eq (car measure-alist) :FAILED)
+      (er hard 'emit-ground-zero-snapshots
+          "ground-zero clique ~x0 has a :? measure — cannot recompute ~
+           termination clauses"
+          names))
+     (t (termination-theorem-clauses
+         t
+         (if (cdr names)
+             nil
+           (getpropc (car names) 'loop$-recursion nil wrld))
+         names
+         (if (cdr names) nil (list (formals (car names) wrld)))
+         (get-unnormalized-bodies names wrld)
+         measure-alist
+         (access justification just :mp)
+         (access justification just :rel)
+         (ruler-extenders-lst names wrld)
+         wrld)))))
+
+(defun gz-all-fnnames-clauses (cls acc)
+; All function symbols in a clause SET (list of clauses; clause = term list).
+  (declare (xargs :mode :program))
+  (cond ((endp cls) acc)
+        (t (gz-all-fnnames-clauses (cdr cls)
+                                   (all-fnnames1 t (car cls) acc)))))
+
+(defun gz-member-body-fnnames (names wrld acc)
+; Function symbols of the (normalized) bodies and measures of NAMES.
+  (declare (xargs :mode :program))
+  (cond ((endp names) acc)
+        (t (gz-member-body-fnnames
+            (cdr names) wrld
+            (let* ((acc (all-fnnames1 nil (body (car names) t wrld) acc))
+                   (just (getpropc (car names) 'justification nil wrld)))
+              (if just
+                  (all-fnnames1 nil (access justification just :measure) acc)
+                acc))))))
+
+(defun gz-defun-closure (pending seen entries wrld)
+; Worklist def-closure over the cited set: each qualifying ground-zero fn
+; contributes one entry (name . term-clauses) — a recursive fn's WHOLE
+; clique enters together (mirroring the live emission, which attaches the
+; clique's clause set to every member) — and seeds the worklist with the
+; fn names of its body, measure, and recomputed termination clauses.
+; Everything reachable from a ground-zero LOGIC body is itself ground-zero
+; LOGIC, so the walk terminates at the body-less primitives. Entry order
+; is normalized by the caller (sort by admission event number); traversal
+; order is irrelevant.
+  (declare (xargs :mode :program))
+  (cond
+   ((endp pending) entries)
+   ((member-eq (car pending) seen)
+    (gz-defun-closure (cdr pending) seen entries wrld))
+   ((not (gz-snapshot-defun-p (car pending) wrld))
+    (gz-defun-closure (cdr pending) (cons (car pending) seen) entries wrld))
+   (t
+    (let* ((fn (car pending))
+           (clique (or (getpropc fn 'recursivep nil wrld) (list fn)))
+           (term-clauses (and (getpropc fn 'recursivep nil wrld)
+                              (gz-termination-clauses clique wrld)))
+           (new-entries
+            (pairlis$ clique
+                      (make-list (length clique)
+                                 :initial-element term-clauses)))
+           (seeds (gz-all-fnnames-clauses
+                   term-clauses
+                   (gz-member-body-fnnames clique wrld nil))))
+      (gz-defun-closure (append seeds (cdr pending))
+                        (append clique seen)
+                        (append new-entries entries)
+                        wrld)))))
+
+(defun gz-insert-entry (e lst wrld)
+; Insertion by admission event number (ties by symbol name) — a
+; deterministic, dependency-respecting order (ACL2 admits definitions
+; before their users, so lower event number = earlier dependency).
+  (declare (xargs :mode :program))
+  (cond ((endp lst) (list e))
+        (t (let ((ne (getpropc (car e) 'absolute-event-number 0 wrld))
+                 (nl (getpropc (car (car lst)) 'absolute-event-number 0
+                               wrld)))
+             (if (or (< ne nl)
+                     (and (= ne nl)
+                          (symbol< (car e) (car (car lst)))))
+                 (cons e lst)
+               (cons (car lst) (gz-insert-entry e (cdr lst) wrld)))))))
+
+(defun gz-sort-entries (lst acc wrld)
+  (declare (xargs :mode :program))
+  (cond ((endp lst) acc)
+        (t (gz-sort-entries (cdr lst)
+                            (gz-insert-entry (car lst) acc wrld)
+                            wrld))))
+
+(defun gz-rule-entries-of-rules (rules acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp rules) acc)
+   (t (gz-rule-entries-of-rules
+       (cdr rules)
+       (let ((r (car rules)))
+         (cons (list (access rewrite-rule r :rune)
+                     (access rewrite-rule r :hyps)
+                     (access rewrite-rule r :equiv)
+                     (access rewrite-rule r :lhs)
+                     (access rewrite-rule r :rhs)
+                     (access rewrite-rule r :match-free))
+               acc))))))
+
+(defun gz-rule-entries-of-runes (pairs wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp pairs) acc)
+   (t (gz-rule-entries-of-runes
+       (cdr pairs) wrld
+       (let ((rune (cdr (car pairs))))
+         (cond
+          ((eq (car rune) :rewrite)
+           (gz-rule-entries-of-rules (find-rules-of-rune rune wrld) acc))
+          (t acc)))))))
+
+(defun gz-rule-entries (syms wrld acc)
+; For each cited symbol naming a ground-zero event with :REWRITE runes,
+; every stored rewrite-rule of those runes as an entry
+; (rune hyps equiv lhs rhs match-free) — the (:RULES …) entry shape plus
+; the match-free flag (design D5: the snapshot carries the normalized rule
+; form including rule-class flags). SYMS must arrive sorted (the collector
+; hash has no deterministic order).
+  (declare (xargs :mode :program))
+  (cond
+   ((endp syms) (reverse acc))
+   (t (gz-rule-entries
+       (cdr syms) wrld
+       (let ((s (car syms)))
+         (cond
+          ((and (symbolp s)
+                s
+                (getpropc s 'predefined nil wrld))
+           (gz-rule-entries-of-runes
+            (getpropc s 'runic-mapping-pairs nil wrld) wrld acc))
+          (t acc)))))))
+
+(defun gz-rule-term-fns (entries acc)
+; Function symbols of the rule entries' hyps/lhs/rhs — additional seeds
+; for the defun closure (a snapshot rule's statement must evaluate, so the
+; fns it mentions need their defs too).
+  (declare (xargs :mode :program))
+  (cond ((endp entries) acc)
+        (t (gz-rule-term-fns
+            (cdr entries)
+            (let* ((e (car entries))
+                   (acc (all-fnnames1 t (nth 1 e) acc))
+                   (acc (all-fnnames1 nil (nth 3 e) acc)))
+              (all-fnnames1 nil (nth 4 e) acc))))))
+
+; TRACE-LOG[emit/defun]: emit one (:DEFUN … :SOURCE :GROUND-ZERO) snapshot
+; per cited-closure ground-zero defun — same event keyword and field layout
+; as the live admission-time emit/defun (defuns.lisp), so the parser shares
+; the shape; the :SOURCE marker is what distinguishes a world snapshot from
+; a captured admission.
+(defun emit-ground-zero-defuns (entries state)
+; Each event is printed as ONE ~x s-expression (never via literal format
+; text): fmt line-fills literal text and can break an atom at a hyphen
+; (":GROUND-\nZERO"), which is fatal to the s-expression reader; ppr'd
+; atoms never split.
+  (declare (xargs :mode :program :stobjs state))
+  (cond
+   ((endp entries) state)
+   (t (let* ((name (car (car entries)))
+             (term-clauses (cdr (car entries)))
+             (wrld (w state))
+             (just (getpropc name 'justification nil wrld))
+             (state
+              (fms "~x0~%"
+                   (list (cons #\0
+                               (append
+                                (list :defun name
+                                      :formals (formals name wrld)
+                                      :body (body name t wrld))
+                                (and just
+                                     (list :measure
+                                           (access justification just
+                                                   :measure)
+                                           :wfrel
+                                           (access justification just :rel)
+                                           :measured
+                                           (access justification just
+                                                   :subset)))
+                                (and just term-clauses
+                                     (list :termination-clauses
+                                           term-clauses))
+                                (list :source :ground-zero))))
+                   (proofs-co state) state nil)))
+        (emit-ground-zero-defuns (cdr entries) state)))))
+
+; TRACE-LOG[emit/ground-zero-rules]: the capture-end command. The capture
+; script sends (emit-ground-zero-snapshots state) after the book's ld: emits
+; the cited-closure ground-zero defun snapshots (admission order; see
+; emit/defun above) followed by one
+; (:GROUND-ZERO-RULES ((rune hyps equiv lhs rhs match-free) …)) event for
+; the cited ground-zero rewrite rules. A no-op outside :structured mode.
+(defun emit-ground-zero-snapshots (state)
+  (declare (xargs :mode :program :stobjs state))
+  (cond
+   ((not (eq (f-get-global 'raw-proof-format state) :structured))
+    state)
+   (t
+    (let* ((wrld (w state))
+           (cited (merge-sort-symbol<
+                   #-acl2-loop-only (structured-cited-symbols-list)
+                   #+acl2-loop-only nil))
+           (rule-entries (gz-rule-entries cited wrld nil))
+           (entries (gz-sort-entries
+                     (gz-defun-closure
+                      (append (gz-rule-term-fns rule-entries nil) cited)
+                      nil nil wrld)
+                     nil wrld))
+           (state (emit-ground-zero-defuns entries state)))
+      (cond
+       ((null rule-entries) state)
+       ; one ~x s-expression, same rationale as emit-ground-zero-defuns
+       ; (a literal ":GROUND-ZERO-RULES" can line-break at a hyphen).
+       (t (fms "~x0~%"
+               (list (cons #\0 (list :ground-zero-rules rule-entries)))
+               (proofs-co state) state nil)))))))
 
 (defmacro set-raw-warning-format (flg)
   (declare (xargs :guard (member-equal flg '(t 't nil 'nil))))

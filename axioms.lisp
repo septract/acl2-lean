@@ -14328,6 +14328,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
 ; with #-acl2-loop-only raw code touching *structured-rewrite-log*) as program-fns-with-raw-code;
 ; each added entry is marked inline with `; *structured-rewrite-log*`.
   '(set-raw-proof-format-fn ; *structured-rewrite-log*
+    emit-ground-zero-snapshots ; *structured-cited-symbols*
     emit-structured-defuns ; *structured-termination-clauses*
     prove-termination ; *structured-termination-clauses*
     waterfall-msg1 ; *structured-rewrite-log*
@@ -22492,6 +22493,31 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
    (and foundp ; return nil when x is nil but is not in the current package
         (eq sym x))))
 
+; TRACE-LOG[infra/cited-symbols]: accumulator for the ground-zero snapshot
+; emission (external-knowledge design D3/D5). While :structured capture is
+; active this holds an EQ hash-table and prin1$ records EVERY symbol it
+; prints (nil = inactive; set up by set-raw-proof-format-fn in ld.lisp,
+; consumed by emit-ground-zero-snapshots in ld.lisp). "Cited" is thereby
+; DEFINED as "printed anywhere in the captured events" — a deliberate
+; over-approximation (a variable or rune name may coincide with a fn name);
+; over-inclusion merely emits an extra snapshot, and the replay is
+; fail-closed against under-inclusion (a missing def hard-fails at its use
+; site, never silently).
+#-acl2-loop-only
+(defvar *structured-cited-symbols* nil
+  "When non-nil (an EQ hash-table), prin1$ records every symbol printed.")
+
+; TRACE-LOG[infra/cited-symbols]: read the collector out as a list (raw
+; helper for emit-ground-zero-snapshots; hash order is nondeterministic, so
+; every consumer must sort before emitting).
+#-acl2-loop-only
+(defun structured-cited-symbols-list ()
+  (let (acc)
+    (when (hash-table-p *structured-cited-symbols*)
+      (maphash (lambda (k v) (declare (ignore v)) (push k acc))
+               *structured-cited-symbols*))
+    acc))
+
 (defun prin1$ (x channel state)
 
 ;  prin1$ differs from prin1 in several ways.  The second arg is state, not
@@ -22510,6 +22536,10 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
          (cond ((and *wormholep*
                      (not (eq channel *standard-co*)))
                 (wormhole-er 'prin1$ (list x channel))))
+         ; TRACE-LOG[infra/cited-symbols]: record every symbol printed while
+         ; the structured-capture collector is active (see the defvar above).
+         (when (and *structured-cited-symbols* (symbolp x))
+           (setf (gethash x *structured-cited-symbols*) t))
          (let ((stream (get-output-stream-from-channel channel)))
            (declare (special acl2_global_acl2::current-package))
            (with-print-controls
