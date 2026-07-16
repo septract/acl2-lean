@@ -12057,14 +12057,24 @@
                                                 term-clauses))
 ; (part of the emit/defun event above) an INCLUDE-BOOK'd recursive defun
 ; re-emits its justification but ACL2 does not re-run admission, so no
-; termination clauses exist to stash — mark it :INCLUDED T so the parser can
-; distinguish this legitimate absence from a truncated capture (which stays
-; a hard parse failure). The replay keeps such fns' total: hypotheses (D6)
-; until the termination-machine recomputation emission lands (R2 follow-up).
+; termination clauses exist to stash. RECOMPUTE them here with the same
+; termination-machine recomputation the ground-zero snapshots use
+; (gz-termination-clauses, ld.lisp — deterministic recomputation =
+; emission, the R2b-ratified argument; this is the R2 follow-up, forced
+; by the induction scaffold's covering join, J2 2026-07-16). Still mark
+; :INCLUDED T so the parser distinguishes re-emission from admission.
                                           ((and just
                                                 (global-val 'include-book-path
                                                             (w state)))
-                                           " :INCLUDED T")
+                                           #-acl2-loop-only
+                                           (let ((clique
+                                                  (or (getpropc name 'recursivep
+                                                                nil (w state))
+                                                      (list name))))
+                                             (msg " :TERMINATION-CLAUSES ~x0 :INCLUDED T"
+                                                  (gz-termination-clauses
+                                                   clique (w state))))
+                                           #+acl2-loop-only " :INCLUDED T")
                                           (t ""))))
                          (proofs-co state) state nil))
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
