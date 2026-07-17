@@ -5205,6 +5205,14 @@
       (f-put-global 'ld-prompt nil state)
       (f-put-global 'ld-post-eval-print nil state)
       (f-put-global 'ld-verbose nil state)
+; TRACE-LOG[infra/fmt-margins]: widen the fmt margins in :structured mode so fmt's
+; line-filling can never split an emitted token — fmt breaks literal text at spaces
+; AND at hyphens/underscores once past the soft margin (fmt-tilde-s1, basis-a.lisp),
+; which corrupted a :DEFUN emission into ":TERMINATION-" newline "CLAUSES" when the
+; column landed at the margin (qsort's ADDEND-PATTERN). With the margins widened,
+; emission line structure is exactly the ~% directives in the format strings.
+      (f-put-global 'fmt-hard-right-margin 10000 state)
+      (f-put-global 'fmt-soft-right-margin 10000 state)
       ; TRACE-LOG[infra/gstackp]: force gstackp on while structured
       ; logging is active so the rewriter maintains *deep-gstack* (the rewrite frame
       ; stack), from which structured-rewrite-path reads each step's :PATH (congruence
@@ -5227,6 +5235,10 @@
      ; structured mode (paired with the force-on above).
      (pprogn
       (f-put-global 'gstackp nil state)
+; TRACE-LOG[infra/fmt-margins]: restore the default fmt margins when leaving
+; structured mode (paired with the widening above).
+      (f-put-global 'fmt-hard-right-margin *fmt-hard-right-margin-default* state)
+      (f-put-global 'fmt-soft-right-margin *fmt-soft-right-margin-default* state)
       (prog2$
        #-acl2-loop-only
        (progn (setq *structured-rewrite-log* nil)
