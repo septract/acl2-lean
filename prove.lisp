@@ -2701,6 +2701,17 @@
                     (not (eq signal 'abort)))
                (msg " :POOLNAME ~x0"
                     (pool-lst (cdr (access prove-spec-var pspv :pool)))))
+              ; (Part of emit/step:) an ABORTED push-clause emits its cause
+              ; (ACL2's own 'abort-cause ttree tag: REVERT/MAYBE-REVERT =
+              ; reassign the pool name to the ORIGINAL conjecture) plus the
+              ; pool name it reassigns, so the reconstruction links the
+              ; (:POOL-CONSIDER …) to the revert POSITIVELY — inferring
+              ; revert from POOLNAME-absence would violate the fail-closed
+              ; rule (J5, induction-generality design I6/theory-audit T1).
+              ((eq processor 'push-clause)
+               (msg " :ABORT-CAUSE ~x0 :POOLNAME ~x1"
+                    (tagged-object 'abort-cause ttree)
+                    (pool-lst (cdr (access prove-spec-var pspv :pool)))))
               (t ""))))
        (fms "(:STEP :CLAUSEID ~x0 :PROCESSOR ~x1 :RESULT ~x2 :RUNES ~x3~@4~@5~@6~@7)~%"
             (list (cons #\0 cl-id-str)
