@@ -163,6 +163,11 @@
                      :lhs term
                      :rhs (sublis-var unify-subst
                                       (access rewrite-rule lemma :rhs))
+                     ; TRACE-LOG[emit/abbreviation-expansion]: the unify-subst
+                     ; binding the rule's variables to the redex's terms — the
+                     ; replay instantiates the stored rule deterministically
+                     ; (same field as the with-lemma push, rewrite.lisp).
+                     :subst unify-subst
                      ; TRACE-LOG[emit/abbreviation-expansion]: the redex's
                      ; congruence path from the formula root (see
                      ; infra/abbrev-path) — disambiguates multiply-occurring
