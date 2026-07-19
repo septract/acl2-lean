@@ -5450,6 +5450,19 @@
                    (acc (all-fnnames1 nil (nth 3 e) acc)))
               (all-fnnames1 nil (nth 4 e) acc))))))
 
+; TRACE-LOG[infra/gz-tp-select]: the DEFINITIONAL type-prescription of a
+; ground-zero fn — rune base symbol = the fn name. add-type-prescription-rule
+; PREPENDS user :type-prescription defthm rules, so (car tps) at end-of-book
+; snapshot time can be a user rule about the fn (audit 2026-07-19 F1); the
+; admission-time emitter runs before any such defthm and is immune.
+(defun gz-definitional-tp (name tps)
+  (declare (xargs :mode :program))
+  (cond ((endp tps) nil)
+        ((equal (base-symbol (access type-prescription (car tps) :rune))
+                name)
+         (car tps))
+        (t (gz-definitional-tp name (cdr tps)))))
+
 ; TRACE-LOG[emit/defun]: emit one (:DEFUN … :SOURCE :GROUND-ZERO) snapshot
 ; per cited-closure ground-zero defun — same event keyword and field layout
 ; as the live admission-time emit/defun (defuns.lisp), so the parser shares
@@ -5494,13 +5507,20 @@
 ; and the tp: hypothesis machinery consume both identically; generalize-clause
 ; restrictions cite these runes, e.g. type-prescription:EVENS).
              (tps (getpropc name 'type-prescriptions nil wrld))
+; Select the DEFINITIONAL type-prescription by its rune's base symbol
+; (= the fn name), NOT (car tps): add-type-prescription-rule PREPENDS
+; user :type-prescription defthm rules, so at END-OF-BOOK snapshot time
+; the car can be a user rule about this ground-zero fn — a different
+; corollary than the rune generalize-clause cites (audit 2026-07-19 F1;
+; the admission-time emitter runs before any such defthm and is immune).
+             (tp0 (gz-definitional-tp name tps))
              (state
-              (if (and tps
-                       (access type-prescription (car tps) :corollary)
-                       (not (equal (access type-prescription (car tps)
+              (if (and tp0
+                       (access type-prescription tp0 :corollary)
+                       (not (equal (access type-prescription tp0
                                            :corollary)
                                    *t*)))
-                  (let* ((tp (car tps))
+                  (let* ((tp tp0)
                          (basic-ts (access type-prescription tp :basic-ts))
                          (leaves (tp-collect-if-leaves (body name t wrld)
                                                        (ens state)

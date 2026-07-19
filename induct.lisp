@@ -120,7 +120,9 @@
 ; TRACE-LOG[infra/abbrev-path]: the congruence PATH of the current
 ; expand-abbreviations redex, maintained as a dynamic stack of
 ; (BKPTR . PARENT-FN) frames pushed at each ARGUMENT descent
-; (expand-abbreviations-lst — the only positional descent; the
+; (expand-abbreviations-lst — the only ARGUMENT-positional descent; the
+; return-last/beta/iff-list arms recurse IN PLACE at the current position
+; (no frame needed, redex-check fail-closes on mismatch); the
 ; expand-and-or/def-body arms expand IN PLACE at the current position, and
 ; a rule-RHS re-expansion keeps the outer frames live, so nested steps'
 ; paths compose). Root = preprocess-clause's whole disjoined formula, the
