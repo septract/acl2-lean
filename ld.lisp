@@ -5487,7 +5487,35 @@
                                      (list :termination-clauses
                                            term-clauses))
                                 (list :source :ground-zero))))
-                   (proofs-co state) state nil)))
+                   (proofs-co state) state nil))
+; TRACE-LOG[emit/type-prescription]: ground-zero snapshot variant — emit the
+; boot world's computed type-prescription alongside each snapshot :DEFUN
+; (same event shape as the admission-time emit in defuns.lisp, so the parser
+; and the tp: hypothesis machinery consume both identically; generalize-clause
+; restrictions cite these runes, e.g. type-prescription:EVENS).
+             (tps (getpropc name 'type-prescriptions nil wrld))
+             (state
+              (if (and tps
+                       (access type-prescription (car tps) :corollary)
+                       (not (equal (access type-prescription (car tps)
+                                           :corollary)
+                                   *t*)))
+                  (let* ((tp (car tps))
+                         (basic-ts (access type-prescription tp :basic-ts))
+                         (leaves (tp-collect-if-leaves (body name t wrld)
+                                                       (ens state)
+                                                       wrld)))
+                    ; one ~x s-expression, same rationale as the :DEFUN above
+                    (fms "~x0~%"
+                         (list (cons #\0
+                                     (list :type-prescription name
+                                           :corollary
+                                           (access type-prescription tp
+                                                   :corollary)
+                                           :basicts basic-ts
+                                           :leaves leaves)))
+                         (proofs-co state) state nil))
+                state)))
         (emit-ground-zero-defuns (cdr entries) state)))))
 
 ; TRACE-LOG[emit/ground-zero-rules]: the capture-end command. The capture
