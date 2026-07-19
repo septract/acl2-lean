@@ -849,29 +849,38 @@
                                          ens wrld state ttree step-limit)
                         (mv step-limit (disjoin-clauses cl1 cl2) ttree))))
        (t (mv step-limit (list (dumb-negate-lit term)) ttree)))))
-   (t (sl-let (wonp term ttree)
+   (t (sl-let (wonp term1 ttree1)
               (expand-and-or term bool fns-to-be-ignored-by-rewrite
                              ens wrld state ttree step-limit)
               (prog2$
-; TRACE-LOG[emit/clausify/expand]: marker — expand-and-or changed the term during
-; clausification (a definition/rewrite expansion chosen by the ens, NOT a pure
-; if-split). The checker treats its presence as a replay frontier until the
-; expansion steps are bridged.
+; TRACE-LOG[emit/clausify/expand]: expand-and-or changed the term during
+; clausification (a definition/rewrite expansion chosen by the ens, NOT a
+; pure if-split). Emitted as a complete instruction: :FROM (the
+; pre-expansion term) ⇒ :TO under :BOOL, justified by :RUNES (the ttree
+; delta — the fired definition/and-or-lemma runes, expand-and-or plan
+; D1). The checker consumes these in clausify-input1's deterministic
+; depth-first order; it never re-derives the ens choice.
                #-acl2-loop-only
                (when (and wonp (consp *structured-rewrite-log*))
                  (push (list :clausify-expand
                              :origin 'clausify/expand :equiv 'equal
                              :bool bool
-                             :to term)
+                             :from term
+                             :to term1
+                             :runes (merge-sort-lexorder
+                                     (set-difference-equal
+                                      (all-runes-in-ttree ttree1 nil)
+                                      (all-runes-in-ttree ttree nil))))
                        (cdr *structured-rewrite-log*)))
                #+acl2-loop-only nil
                (cond (wonp
-                      (clausify-input1 term bool fns-to-be-ignored-by-rewrite
-                                       ens wrld state ttree step-limit))
-                     (bool (mv step-limit (list term) ttree))
+                      (clausify-input1 term1 bool
+                                       fns-to-be-ignored-by-rewrite
+                                       ens wrld state ttree1 step-limit))
+                     (bool (mv step-limit (list term1) ttree1))
                      (t (mv step-limit
-                            (list (dumb-negate-lit term))
-                            ttree))))))))
+                            (list (dumb-negate-lit term1))
+                            ttree1))))))))
 
 (defun clausify-input1-lst (lst fns-to-be-ignored-by-rewrite ens wrld state
                                 ttree step-limit)
