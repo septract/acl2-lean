@@ -117,6 +117,18 @@
         (t (find-abbreviation-lemma term geneqv (cdr lemmas)
                                     ens wrld))))
 
+; TRACE-LOG[infra/abbrev-path]: the congruence PATH of the current
+; expand-abbreviations redex, maintained as a dynamic stack of
+; (BKPTR . PARENT-FN) frames pushed at each ARGUMENT descent
+; (expand-abbreviations-lst — the only positional descent; the
+; expand-and-or/def-body arms expand IN PLACE at the current position, and
+; a rule-RHS re-expansion keeps the outer frames live, so nested steps'
+; paths compose). Root = preprocess-clause's whole disjoined formula, the
+; term the replay's preprocess chain walks; same frame format as
+; structured-rewrite-path (literal-root-first after reversal).
+#-acl2-loop-only
+(defvar *structured-abbrev-path* nil)
+
 (mutual-recursion
 
 (defun expand-abbreviations-with-lemma (term geneqv pequiv-info
@@ -148,7 +160,12 @@
                      :equiv (access rewrite-rule lemma :equiv)
                      :lhs term
                      :rhs (sublis-var unify-subst
-                                      (access rewrite-rule lemma :rhs)))
+                                      (access rewrite-rule lemma :rhs))
+                     ; TRACE-LOG[emit/abbreviation-expansion]: the redex's
+                     ; congruence path from the formula root (see
+                     ; infra/abbrev-path) — disambiguates multiply-occurring
+                     ; lhs terms in the replay's preprocess chain.
+                     :path (reverse *structured-abbrev-path*))
                (cdr *structured-rewrite-log*)))
        #+acl2-loop-only nil
        (with-accumulated-persistence
@@ -569,6 +586,21 @@
         shallow-pequiv-lst
         wrld)
        (sl-let (term1 new-ttree)
+               ; TRACE-LOG[infra/abbrev-path]: one path frame per argument
+               ; descent (the only positional recursion in this nest);
+               ; raw-only dynamic binding, loop sees the plain call (the
+               ; readtime-conditional pattern of the other emit sites — a
+               ; loop/raw-differing MACRO would trip the build's
+               ; macros-with-raw-code coverage check)
+               #-acl2-loop-only
+               (let ((*structured-abbrev-path*
+                      (cons (cons bkptr parent-fn)
+                            *structured-abbrev-path*)))
+                 (expand-abbreviations (car lst) alist
+                                       child-geneqv child-pequiv-info
+                                       fns-to-be-ignored-by-rewrite
+                                       rdepth step-limit ens wrld state ttree))
+               #+acl2-loop-only
                (expand-abbreviations (car lst) alist
                                      child-geneqv child-pequiv-info
                                      fns-to-be-ignored-by-rewrite
