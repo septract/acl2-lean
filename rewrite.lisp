@@ -4094,21 +4094,37 @@ its attachment is ignored during proofs"))))
             ; deliberately not recorded, the replay re-derives it fail-closed),
             ; SEGMENT-FALSE (false leaf — the path's negations form the
             ; segment), or SEGMENT-OPEN (unresolved leaf — it joins the
-            ; segment as a literal).
+            ; segment as a literal). For the two SEGMENT outcomes we also emit
+            ; :SEGMENT — the clause segment convert-assumptions-to-clause-
+            ; segment constructs for this leaf (the same call if-interp-add-
+            ; clause is about to make). The path's negations do NOT determine
+            ; it: the converter drops literals subsumed by an assumed constant
+            ; equality, so distinct leaves can map to overlapping recorded
+            ; branches and the replay's leaf→branch link would otherwise be
+            ; ambiguous (observed: ALL-REL-RM-2). Emitting the constructed
+            ; segment makes the link exact.
             #-acl2-loop-only
-            (clausify-trace-emit
-             (list :clausify-leaf
-                   :origin 'if-interp/leaf :equiv 'equal
-                   :value v
-                   :outcome (cond ((quotep v)
-                                   (if (equal v *nil*) 'segment-false 'dropped))
-                                  (t (let ((av (if-interp-assumed-value
-                                                v assumptions)))
-                                       (cond ((eq av t) 'dropped)
-                                             ((eq av 'f) 'segment-false)
-                                             (t 'segment-open)))))
-                   :path (clausify-trace-path assumptions))
-             pflg)
+            (let ((outcome (cond ((quotep v)
+                                  (if (equal v *nil*) 'segment-false 'dropped))
+                                 (t (let ((av (if-interp-assumed-value
+                                               v assumptions)))
+                                      (cond ((eq av t) 'dropped)
+                                            ((eq av 'f) 'segment-false)
+                                            (t 'segment-open)))))))
+              (clausify-trace-emit
+               (list* :clausify-leaf
+                      :origin 'if-interp/leaf :equiv 'equal
+                      :value v
+                      :outcome outcome
+                      :path (clausify-trace-path assumptions)
+                      (if (eq outcome 'dropped)
+                          nil
+                        (list :segment
+                              (convert-assumptions-to-clause-segment
+                               assumptions
+                               (if (eq outcome 'segment-open) (list v) nil)
+                               nil))))
+               pflg))
             #+acl2-loop-only nil
             (or (cond ((quotep v)
                        (cond ((equal v *nil*)
