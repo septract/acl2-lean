@@ -2683,11 +2683,28 @@
               (elim-seq
                (msg " :ELIMSEQUENCE ~x0 :ELIMVARS ~x1"
                     elim-seq elim-vars))
+              ; (Part of emit/step:) the FERTILIZE detail also carries the
+              ; justifying clause LITERAL (of the form (not (equiv lhs rhs)))
+              ; and the cross-fert/delete-lit flags — fertilize-clause puts
+              ; all three in its ttree; without them the replay cannot link
+              ; the substitution to its justification (the emission-arc
+              ; design, 2026-07-21). :BULLET is the term substituted IN,
+              ; :TARGET the term substituted FOR (direction = which side of
+              ; :LITERAL's equality :BULLET is).
+              ; Both flags are NORMALIZED to T/NIL: fertilize-clause stores
+              ; the RAW justifying values in its ttree (delete-lit-flg is the
+              ; whole being-proved-by-induction POOL entry — printing it
+              ; drags its symbols into the cited-closure collector and can
+              ; pull in unreplayable cliques, e.g. APPLY$'s :? measure).
               (fert-bullet
-               (msg " :FERTILIZE (:BULLET ~x0 :TARGET ~x1 :EQUIV ~x2)"
+               (msg " :FERTILIZE (:BULLET ~x0 :TARGET ~x1 :EQUIV ~x2 ~
+                     :LITERAL ~x3 :CROSS-FERT-FLG ~x4 :DELETE-LIT-FLG ~x5)"
                     (car fert-bullet)
                     (car fert-target)
-                    (car fert-equiv)))
+                    (car fert-equiv)
+                    (tagged-object 'literal ttree)
+                    (if (tagged-object 'cross-fert-flg ttree) t nil)
+                    (if (tagged-object 'delete-lit-flg ttree) t nil)))
               ((and gen-terms
                     (eq processor 'generalize-clause))
                (msg " :GENERALIZE (:TERMS ~x0 :VARS ~x1)"

@@ -19089,13 +19089,24 @@ its attachment is ignored during proofs"))))
              ; binds the rule's free variables (the node's :SUBST records the
              ; extension). Emitted only here, where the WHOLE remaining-hyps
              ; continuation succeeded under this binding, so internal
-             ; backtracking can never leave a stale marker.
+             ; backtracking can never leave a stale marker. When the
+             ; instantiated hyp is literally a type-alist entry, :TA-RUNES
+             ; carries that entry's ttree runes — a DERIVED entry (e.g.
+             ; forward-chaining LEXORDER-TOTAL) is otherwise unreplayable:
+             ; the fact is not any clause literal's falsity (emission arc,
+             ; 2026-07-21).
              #-acl2-loop-only
              (when (consp *structured-rewrite-log*)
-               (push (list :hyp-relief
-                           :origin 'relieve-hyp/free-type-alist :equiv 'equal
-                           :hyp (sublis-var new-unify-subst hyp))
-                     (cdr *structured-rewrite-log*)))
+               (let* ((ihyp (sublis-var new-unify-subst hyp))
+                      (entry (assoc-equal ihyp type-alist)))
+                 (push (append
+                        (list :hyp-relief
+                              :origin 'relieve-hyp/free-type-alist :equiv 'equal
+                              :hyp ihyp)
+                        (and entry
+                             (list :ta-runes
+                                   (all-runes-in-ttree (cddr entry) nil))))
+                       (cdr *structured-rewrite-log*))))
              #+acl2-loop-only nil
              (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
                  rw-cache-alist-new)))

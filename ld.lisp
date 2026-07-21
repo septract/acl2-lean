@@ -5416,6 +5416,54 @@
            (gz-rule-entries-of-rules (find-rules-of-rune rune wrld) acc))
           (t acc)))))))
 
+; TRACE-LOG[infra/gz-fc-rules]: FORWARD-CHAINING-class ground-zero rule
+; collectors (emission arc, 2026-07-21) — the free-type-alist relief markers
+; can cite FC-DERIVED type-alist entries (:TA-RUNES, e.g. LEXORDER-TOTAL);
+; replaying that derivation needs the FC rule's stored trigger/hyps/concls,
+; which no existing event carries. Same cited-closure walk as
+; gz-rule-entries; emitted as a SEPARATE (:GROUND-ZERO-FC-RULES …) event
+; (the rewrite entries' 6-field shape is pinned by the D5 consumer).
+(defun gz-fc-rule-entries-of-rules (rules acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp rules) acc)
+   (t (gz-fc-rule-entries-of-rules
+       (cdr rules)
+       (let ((r (car rules)))
+         (cons (list (access forward-chaining-rule r :rune)
+                     (access forward-chaining-rule r :trigger)
+                     (access forward-chaining-rule r :hyps)
+                     (access forward-chaining-rule r :concls)
+                     (access forward-chaining-rule r :match-free))
+               acc))))))
+
+(defun gz-fc-rule-entries-of-runes (pairs wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp pairs) acc)
+   (t (gz-fc-rule-entries-of-runes
+       (cdr pairs) wrld
+       (let ((rune (cdr (car pairs))))
+         (cond
+          ((eq (car rune) :forward-chaining)
+           (gz-fc-rule-entries-of-rules (find-rules-of-rune rune wrld) acc))
+          (t acc)))))))
+
+(defun gz-fc-rule-entries (syms wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp syms) (reverse acc))
+   (t (gz-fc-rule-entries
+       (cdr syms) wrld
+       (let ((s (car syms)))
+         (cond
+          ((and (symbolp s)
+                s
+                (getpropc s 'predefined nil wrld))
+           (gz-fc-rule-entries-of-runes
+            (getpropc s 'runic-mapping-pairs nil wrld) wrld acc))
+          (t acc)))))))
+
 (defun gz-rule-entries (syms wrld acc)
 ; For each cited symbol naming a ground-zero event with :REWRITE runes,
 ; every stored rewrite-rule of those runes as an entry
@@ -5561,13 +5609,22 @@
                       nil nil wrld)
                      nil wrld))
            (state (emit-ground-zero-defuns entries state)))
-      (cond
-       ((null rule-entries) state)
-       ; one ~x s-expression, same rationale as emit-ground-zero-defuns
-       ; (a literal ":GROUND-ZERO-RULES" can line-break at a hyphen).
-       (t (fms "~x0~%"
-               (list (cons #\0 (list :ground-zero-rules rule-entries)))
-               (proofs-co state) state nil)))))))
+      (let ((fc-entries (gz-fc-rule-entries cited wrld nil)))
+        (let ((state
+               (cond
+                ((null rule-entries) state)
+                ; one ~x s-expression, same rationale as emit-ground-zero-defuns
+                ; (a literal ":GROUND-ZERO-RULES" can line-break at a hyphen).
+                (t (fms "~x0~%"
+                        (list (cons #\0 (list :ground-zero-rules rule-entries)))
+                        (proofs-co state) state nil)))))
+          (cond
+           ((null fc-entries) state)
+           ; (Part of emit/ground-zero-rules:) the FC-class snapshot —
+           ; (:GROUND-ZERO-FC-RULES ((rune trigger hyps concls match-free) …)).
+           (t (fms "~x0~%"
+                   (list (cons #\0 (list :ground-zero-fc-rules fc-entries)))
+                   (proofs-co state) state nil)))))))))
 
 (defmacro set-raw-warning-format (flg)
   (declare (xargs :guard (member-equal flg '(t 't nil 'nil))))
