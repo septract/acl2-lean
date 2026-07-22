@@ -7418,7 +7418,13 @@ its attachment is ignored during proofs"))))
                    (and (consp bk)
                         (eq (car bk) 'quote)
                         (member-eq (cadr bk)
-                                   '(rhs body lambda-body expansion))))))
+                                   ; rewritten-body: the RUNOUT pass (a
+                                   ; recursive fn's rewritten body rewritten
+                                   ; again, ~20613) — without its own block
+                                   ; the runout's nodes mis-adopt (ACL2Lean
+                                   ; emission arc, 2026-07-21)
+                                   '(rhs body lambda-body expansion
+                                     rewritten-body))))))
            (inner-rewrite-kind
             (and inner-rewrite-p
                  (cadr (cadddr (car args)))))
@@ -19098,7 +19104,12 @@ its attachment is ignored during proofs"))))
              #-acl2-loop-only
              (when (consp *structured-rewrite-log*)
                (let* ((ihyp (sublis-var new-unify-subst hyp))
-                      (entry (assoc-equal ihyp type-alist)))
+                      ; a NOT-wrapped hyp's entry is stored under the ATOM
+                      ; (with a false type-set) — try both polarities
+                      (entry (or (assoc-equal ihyp type-alist)
+                                 (and (consp ihyp)
+                                      (eq (car ihyp) 'not)
+                                      (assoc-equal (cadr ihyp) type-alist)))))
                  (push (append
                         (list :hyp-relief
                               :origin 'relieve-hyp/free-type-alist :equiv 'equal
