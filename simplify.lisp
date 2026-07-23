@@ -8432,12 +8432,30 @@
 ; equivalences ttree to the ttree returned by forward-chain and we must
 ; remember our earlier case splits.
 
-               (mv step-limit
-                   'hit
-                   nil
-                   (cons-tag-trees
-                    remove-trivial-equivalences-ttree
-                    fc-pair-lst)))
+; TRACE-LOG[emit/simplify-clause/fc-contradiction]: discharge node — the
+; whole clause is proved because FORWARD CHAINING over the negated literals
+; reached a contradiction (runes in the returned ttree; no recorded
+; derivation — verdict-class). Previously NOTHING was emitted, leaving the
+; PROVED step with only clausify records (the HOW-MANY-FILTER-1 Subgoal
+; *1/3.3 pin: "ran out of items with no closer"). Same shape as
+; emit/preprocess/type-set-fc so the DP carve-out picks the leaf up.
+               (prog2$
+                #-acl2-loop-only
+                (when (consp *structured-rewrite-log*)
+                  (push (list :rewrite-step
+                              :rune '(:fake-rune-for-type-set nil)
+                              :origin 'simplify-clause/fc-contradiction
+                              :equiv 'equal
+                              :lhs (disjoin current-clause)
+                              :rhs *t*)
+                        (cdr *structured-rewrite-log*)))
+                #+acl2-loop-only nil
+                (mv step-limit
+                    'hit
+                    nil
+                    (cons-tag-trees
+                     remove-trivial-equivalences-ttree
+                     fc-pair-lst))))
               (t
 
 ; We next construct the initial simplify-clause-pot-lst.
