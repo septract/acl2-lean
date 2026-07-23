@@ -7483,11 +7483,29 @@
 
         (cond
          (contradictionp
-          (mv step-limit
-              t
-              (- ecnt 1)
-              ans
-              (cons-tag-trees ttree0 ttree)))
+; TRACE-LOG[emit/rewrite-clause/type-alist-contradiction]: discharge node —
+; building this literal's type-alist (falsity of the OTHER literals + the
+; fc-pair conclusions) found a CONTRADICTION: the whole clause is proved with
+; no literal rewriting (runes in ttree0; no recorded derivation —
+; verdict-class). Previously NOTHING was emitted here (the HOW-MANY-FILTER-1
+; Subgoal *1/3.3 pin: "ran out of items with no closer"); same shape as
+; emit/preprocess/type-set-fc so the DP carve-out picks the leaf up.
+          (prog2$
+           #-acl2-loop-only
+           (when (consp *structured-rewrite-log*)
+             (push (list :rewrite-step
+                         :rune '(:fake-rune-for-type-set nil)
+                         :origin 'rewrite-clause/type-alist-contradiction
+                         :equiv 'equal
+                         :lhs (disjoin current-clause)
+                         :rhs *t*)
+                   (cdr *structured-rewrite-log*)))
+           #+acl2-loop-only nil
+           (mv step-limit
+               t
+               (- ecnt 1)
+               ans
+               (cons-tag-trees ttree0 ttree))))
          (t
           (let ((skip-rewrite-atm (and case-limit
                                        (> ecnt case-limit)))
