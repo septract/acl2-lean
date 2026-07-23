@@ -7069,7 +7069,7 @@
 
               (let ((state
                      (io? prove nil state
-                          (wrld clauses termifiedp estimated-size
+                          (wrld clauses clauses1 termifiedp estimated-size
                                 winning-candidate
                                 high-scoring-candidates complicated-candidates
                                 unvetoed-candidates merged-candidates
@@ -7085,7 +7085,11 @@
 ; conjecture's actuals via the formals->actuals alist of the induction term — otherwise the
 ; measure would mention the function's formals while :CASES/:TESTS mention the conjecture's vars
 ; (e.g. for (app a b) the measure is acl2-count of a, not of app's formal x). :SCHEME kept for
-; cross-check.
+; cross-check. :SCHEME-DROPPED is the POSITIVE per-clause record of the clauses
+; remove-trivial-clauses deleted (clauses1 minus clauses) — each was certified trivially true by
+; the verdict-only trivial-clause-p/if-tautologyp check, and the replay's carve-out discharge of
+; a dropped case branch is GATED on membership here (audit 2026-07-22: absence from :SCHEME
+; alone is not an emitted record).
                           (cond
                            ((eq (f-get-global 'raw-proof-format state)
                                 :structured)
@@ -7097,7 +7101,7 @@
                                    (just (access candidate cand :justification))
                                    (ialist (pairlis$ (formals (ffn-symb term) (w state))
                                                      (fargs term))))
-                            (fms "(:INDUCTION :TERM ~x0 :XTERM ~x1 :SUBGOALS ~x2 :MEASURE ~x3 :REL ~x4 :MP ~x5 :CONTROLLERS ~x6 :CASES ~x7 :SCHEME ~x8)~%"
+                            (fms "(:INDUCTION :TERM ~x0 :XTERM ~x1 :SUBGOALS ~x2 :MEASURE ~x3 :REL ~x4 :MP ~x5 :CONTROLLERS ~x6 :CASES ~x7 :SCHEME ~x8 :SCHEME-DROPPED ~x9)~%"
                                  (list (cons #\0 term)
                                        (cons #\1 (access candidate cand :xinduction-term))
                                        (cons #\2 (length clauses))
@@ -7107,7 +7111,8 @@
                                        (cons #\6 (access candidate cand :controllers))
                                        (cons #\7 (structured-induction-cases
                                                   (access candidate cand :tests-and-alists-lst)))
-                                       (cons #\8 clauses))
+                                       (cons #\8 clauses)
+                                       (cons #\9 (set-difference-equal clauses1 clauses)))
                                  (proofs-co state) state nil)))
                            (t
                             (induct-msg/continue
