@@ -4912,12 +4912,27 @@
               (value (cons col cl-set-ttree)))
              (t
               (mv-let (erp ttree state)
-                (prove (termify-clause-set cl-set)
-                       (make-pspv ens wrld state
-                                  :displayed-goal displayed-goal
-                                  :otf-flg otf-flg)
-                       hints
-                       ens wrld ctx state)
+                (pprogn
+                 ; TRACE-LOG[emit/verify-guards]: in :structured mode, WRAP the
+                 ; guard-obligation waterfall with an opener naming the fns and
+                 ; the obligation clause set — without it the proof's :STEP/
+                 ; (:QED) events are ORPHANS between top-level events (mapping
+                 ; arc pin cov-verify-guards, S1.2 2026-07-23; trivially-
+                 ; discharged obligations never reach this prove and emit
+                 ; nothing). The existing (:QED) closes the wrapped proof.
+                 ; Logging-only.
+                 (cond ((eq (f-get-global 'raw-proof-format state) :structured)
+                        (fms "(:VERIFY-GUARDS :NAMES ~x0 :CLAUSES ~x1)~%"
+                             (list (cons #\0 names)
+                                   (cons #\1 cl-set))
+                             (proofs-co state) state nil))
+                       (t state))
+                 (prove (termify-clause-set cl-set)
+                        (make-pspv ens wrld state
+                                   :displayed-goal displayed-goal
+                                   :otf-flg otf-flg)
+                        hints
+                        ens wrld ctx state))
                 (cond
                  (erp
                   (mv-let

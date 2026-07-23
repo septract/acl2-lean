@@ -14357,6 +14357,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     defthm-fn1 ; *structured-rules* (rule-event flush)
     if-interp ; *structured-rewrite-log* (clausify-trace)
     if-interp-add-clause ; *structured-rewrite-log* (clausify-trace)
+    strip-branches ; *structured-rewrite-log* (clausify-trace, emit/strip-branches/and-shape)
     scons-term ; *structured-rewrite-log*
     remove-trivial-equivalences-rec ; *structured-rewrite-log*
     rewrite ; *structured-rewrite-log*

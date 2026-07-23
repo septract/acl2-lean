@@ -780,12 +780,19 @@
      ; Scoped to genuine NAMED :REWRITE runes: chk-acceptable-time candidate
      ; rules carry *fake-rune-for-anonymous-enabled-rule* (name nil) and are
      ; never stored in the world — they are not rules a proof can cite.
+     ; The entry's 6th element is the rule's backchain-limit-lst exactly as
+     ; stored (nil = unlimited; else a per-hyp list) — previously OMITTED,
+     ; making limits invisible to the replay (mapping-arc pin
+     ; cov-backchain-limit, S1.2 2026-07-23).
      #-acl2-loop-only
      (when (and (consp *structured-rewrite-log*)
                 (consp rune)
                 (eq (car rune) :rewrite)
                 (cadr rune))
-       (push (list rune hyps equiv lhs rhs) *structured-rules*))
+       (push (list rune hyps equiv lhs rhs
+                   (rule-backchain-limit-lst backchain-limit-lst hyps wrld
+                                             :rewrite))
+             *structured-rules*))
      #+acl2-loop-only nil
     (make rewrite-rule
           :rune rune

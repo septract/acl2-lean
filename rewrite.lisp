@@ -4332,9 +4332,24 @@ its attachment is ignored during proofs"))))
 ; is not recursive and this special treatment of conjuncts is not done in
 ; other contexts.
 
-    (union-equal
-     (strip-branches (fargn term 1) assumptions lambda-exp)
-     (strip-branches (fargn term 2) assumptions lambda-exp)))
+    (prog2$
+     ; TRACE-LOG[emit/strip-branches/and-shape]: the AND-shape special case
+     ; `(IF p q 'NIL)` UNIONS the two sides' clause sets WITHOUT an if-interp
+     ; test event — the replay previously saw two leaves with no split trace
+     ; (mapping-arc pin ORDEREDP-ISORT Subgoal *1.1/3'; emission queue item,
+     ; landed S1.2 2026-07-23). Emit the conjunction split explicitly so the
+     ; leaf→side provenance is recorded. Logging-only.
+     #-acl2-loop-only
+     (clausify-trace-emit
+      (list :clausify-conjunction
+            :origin 'strip-branches/and-shape :equiv 'equal
+            :left (fargn term 1)
+            :right (fargn term 2))
+      nil)
+     #+acl2-loop-only nil
+     (union-equal
+      (strip-branches (fargn term 1) assumptions lambda-exp)
+      (strip-branches (fargn term 2) assumptions lambda-exp))))
    (t
     (if-interp (splice-instrs (if-compile term lambda-exp nil nil)) nil nil
                assumptions
