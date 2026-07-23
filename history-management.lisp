@@ -2448,6 +2448,18 @@
 
 (defun print-failure (erp event-type acc-ttree ctx state)
   (pprogn
+   ; TRACE-LOG[emit/event-failed]: in :structured mode a failed event's error
+   ; output is INHIBITED (infra/structured-setup inhibits the error channel),
+   ; which made a failed event indistinguishable from an instrumentation
+   ; crash (mapping-arc S1 diagnosis 2026-07-23: the whole "capture-halt
+   ; family" was ordinary event failures hidden here). Emit a structured
+   ; marker so logs are self-describing and the capture integrity net can
+   ; name the failing event precisely. Logging-only.
+   (cond ((eq (f-get-global 'raw-proof-format state) :structured)
+          (fms "(:EVENT-FAILED :CTX ~x0)~%"
+               (list (cons #\0 ctx))
+               (proofs-co state) state nil))
+         (t state))
    (save-and-print-gag-state state)
    #+acl2-par
    (print-acl2p-checkpoints state)
