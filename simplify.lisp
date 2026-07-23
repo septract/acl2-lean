@@ -7491,8 +7491,10 @@
 ; Subgoal *1/3.3 pin: "ran out of items with no closer"); same shape as
 ; emit/preprocess/type-set-fc so the DP carve-out picks the leaf up.
           (prog2$
+; Same *true-clause* gate as the fc-contradiction emitter (S1.3 fix).
            #-acl2-loop-only
-           (when (consp *structured-rewrite-log*)
+           (when (and (consp *structured-rewrite-log*)
+                      (not (equal current-clause *true-clause*)))
              (push (list :rewrite-step
                          :rune '(:fake-rune-for-type-set nil)
                          :origin 'rewrite-clause/type-alist-contradiction
@@ -8440,8 +8442,14 @@
 ; *1/3.3 pin: "ran out of items with no closer"). Same shape as
 ; emit/preprocess/type-set-fc so the DP carve-out picks the leaf up.
                (prog2$
+; The *true-clause* gate (S1.3 fix): the settled-down bookkeeping re-runs
+; simplify on the residual true clause, where forward chaining on (not 'T)
+; "contradicts" vacuously — emitting there pollutes the PRECEDING step's
+; records with a degenerate ('T ⇒ 'T) item (the COMM-RM *1/1.2 regression).
+; A real proved clause is never *true-clause*.
                 #-acl2-loop-only
-                (when (consp *structured-rewrite-log*)
+                (when (and (consp *structured-rewrite-log*)
+                           (not (equal current-clause *true-clause*)))
                   (push (list :rewrite-step
                               :rune '(:fake-rune-for-type-set nil)
                               :origin 'simplify-clause/fc-contradiction
