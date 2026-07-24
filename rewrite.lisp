@@ -18562,13 +18562,24 @@ its attachment is ignored during proofs"))))
                                    ; TRACE-LOG[emit/relieve-hyp/known-true]: a hyp
                                    ; relieved SILENTLY by type-set under the clause
                                    ; type-alist (known-whether-nil) — same marker
-                                   ; rationale as emit/relieve-hyp/type-alist.
+                                   ; rationale as emit/relieve-hyp/type-alist. The
+                                   ; verdict's ttree is the ONLY justification ACL2
+                                   ; has, so thread it out (S1, 2026-07-23):
+                                   ; :TA-RUNES the runes type-set used (may be just
+                                   ; the fake type-set rune for primitive steps like
+                                   ; type-set-cdr), :PARENTS the 'pt tags naming the
+                                   ; clause literals the derivation descended from —
+                                   ; same convention as the solidify emitters.
                                    #-acl2-loop-only
                                    (when (consp *structured-rewrite-log*)
                                      (push (list :hyp-relief
                                                  :origin 'relieve-hyp/known-true
                                                  :equiv 'equal
-                                                 :hyp inst-hyp)
+                                                 :hyp inst-hyp
+                                                 :ta-runes
+                                                 (all-runes-in-ttree nilp-ttree nil)
+                                                 :parents
+                                                 (tagged-objects 'pt nilp-ttree))
                                            (cdr *structured-rewrite-log*)))
                                    #+acl2-loop-only nil
                                    (mv step-limit
