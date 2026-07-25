@@ -20363,6 +20363,16 @@ its attachment is ignored during proofs"))))
                                  simplify-clause-pot-lst
                                  (access rewrite-constant rcnst :pt))))
              (t
+; TRACE-LOG[infra/saved-log-tail]: checkpoint before SPECULATIVELY rewriting a
+; LAMBDA body, so a rejected expansion (too-many-ifs-post-rewrite, below) rolls
+; the speculative inner events back — the same guard the fncall body-expansion
+; path already carries; without it a discarded lambda expansion would leave
+; orphan events that the tree builder mis-parents onto the next chain step.
+              (let #-acl2-loop-only
+                   ((saved-log-tail
+                     (when (consp *structured-rewrite-log*)
+                       (cons t (cdr *structured-rewrite-log*)))))
+                   #+acl2-loop-only ()
               (sl-let
                (rewritten-body ttree1)
                (rewrite-entry (rewrite body
@@ -20385,16 +20395,42 @@ its attachment is ignored during proofs"))))
                (cond
                 ((and (not (recursive-fn-on-fnstackp fnstack))
                       (too-many-ifs-post-rewrite args rewritten-body))
-                 (prepend-step-limit
-                  2
-                  (rewrite-solidify term type-alist obj geneqv
-                                    (access rewrite-constant rcnst
-                                            :current-enabled-structure)
-                                    wrld
-                                    (accumulate-rw-cache t ttree1 ttree)
-                                    simplify-clause-pot-lst
-                                    (access rewrite-constant rcnst :pt))))
-                (t (mv step-limit rewritten-body ttree1)))))))
+                 (progn$
+; TRACE-LOG[infra/saved-log-tail]: roll back speculative inner events (rejected lambda expansion)
+                  #-acl2-loop-only
+                  (when (and (consp *structured-rewrite-log*)
+                             saved-log-tail)
+                    (setf (cdr *structured-rewrite-log*)
+                          (cdr saved-log-tail)))
+                  #+acl2-loop-only nil
+                  (prepend-step-limit
+                   2
+                   (rewrite-solidify term type-alist obj geneqv
+                                     (access rewrite-constant rcnst
+                                             :current-enabled-structure)
+                                     wrld
+                                     (accumulate-rw-cache t ttree1 ttree)
+                                     simplify-clause-pot-lst
+                                     (access rewrite-constant rcnst :pt)))))
+; TRACE-LOG[emit/rewrite-fncall/lambda-body]: rewrite-step (:lambda-body) — the
+; BETA step of a translated `let`/`mv-let`: ACL2 replaces the lambda application
+; (whose actuals are already rewritten) by the rewritten body. This is the step
+; that ADOPTS the LAMBDA-BODY inner block; ACL2 fires no rune here, so without
+; it the block has no parent and the tree builder attaches its nodes to the next
+; chain step (which is a different position entirely).
+                (t
+                 (progn$
+                  #-acl2-loop-only
+                  (when (consp *structured-rewrite-log*)
+                    (push (list :rewrite-step
+                                :path (structured-rewrite-path)
+                                :rune '(:lambda-body nil)
+                                :origin 'rewrite-fncall/lambda-body :equiv 'equal
+                                :lhs term
+                                :rhs rewritten-body)
+                          (cdr *structured-rewrite-log*)))
+                  #+acl2-loop-only nil
+                  (mv step-limit rewritten-body ttree1)))))))))
            (t
             (let* ((new-fnstack (cons (or recursivep fn) fnstack))
                    (rune (access rewrite-rule rule :rune)))
