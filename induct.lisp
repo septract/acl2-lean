@@ -315,12 +315,33 @@
                    (or (flambda-applicationp term)
                        (not (getpropc fn 'constrainedp nil wrld))))
               (cond ((flambda-applicationp term)
-                     (expand-abbreviations
-                      (lambda-body fn)
-                      (pairlis$ (lambda-formals fn) expanded-args)
-                      geneqv pequiv-info
-                      fns-to-be-ignored-by-rewrite
-                      (adjust-rdepth rdepth) step-limit ens wrld state ttree))
+; TRACE-LOG[emit/expand-abbreviations/lambda-body]: rewrite-step (:lambda-body)
+; — the site-3 BETA, ALL-QUOTED-ACTUALS arm (the arm the pin book
+; p2-beta-preprocess actually exercises: a duplicated formal fails
+; abbreviationp, so the abbreviation arms never fire and the beta happens
+; here). Entry-style: :rhs is the substituted body; its further expansion
+; (incl. the const-folds of the reduct) is logged as its own steps.
+                     (prog2$
+                      #-acl2-loop-only
+                      (when (consp *structured-rewrite-log*)
+                        (push (list :rewrite-step
+                                    :rune '(:lambda-body nil)
+                                    :origin 'expand-abbreviations/lambda-body
+                                    :equiv (structured-geneqv-equiv geneqv)
+                                    :lhs (mcons-term fn expanded-args)
+                                    :rhs (sublis-var
+                                          (pairlis$ (lambda-formals fn)
+                                                    expanded-args)
+                                          (lambda-body fn))
+                                    :path (reverse *structured-abbrev-path*))
+                              (cdr *structured-rewrite-log*)))
+                      #+acl2-loop-only nil
+                      (expand-abbreviations
+                       (lambda-body fn)
+                       (pairlis$ (lambda-formals fn) expanded-args)
+                       geneqv pequiv-info
+                       fns-to-be-ignored-by-rewrite
+                       (adjust-rdepth rdepth) step-limit ens wrld state ttree)))
                     ((programp fn wrld)
 
 ; We formerly thought this case was possible during admission of recursive
@@ -381,12 +402,33 @@
               (cond ((abbreviationp nil
                                     (lambda-formals fn)
                                     (lambda-body fn))
-                     (expand-abbreviations
-                      (lambda-body fn)
-                      (pairlis$ (lambda-formals fn) expanded-args)
-                      geneqv pequiv-info
-                      fns-to-be-ignored-by-rewrite
-                      (adjust-rdepth rdepth) step-limit ens wrld state ttree))
+; TRACE-LOG[emit/expand-abbreviations/lambda-body]: rewrite-step (:lambda-body)
+; — the BETA step at preprocess (S2 audit site 3, arm A: abbreviation body;
+; pin book p2-beta-preprocess). Entry-style like the abbreviation-expansion
+; push above: :rhs is the sublis-var substituted body — the per-step result —
+; and its further expansion (the recursion below) is logged as its own steps,
+; located inside the reduct that now stands at the application's position.
+                     (prog2$
+                      #-acl2-loop-only
+                      (when (consp *structured-rewrite-log*)
+                        (push (list :rewrite-step
+                                    :rune '(:lambda-body nil)
+                                    :origin 'expand-abbreviations/lambda-body
+                                    :equiv (structured-geneqv-equiv geneqv)
+                                    :lhs (mcons-term fn expanded-args)
+                                    :rhs (sublis-var
+                                          (pairlis$ (lambda-formals fn)
+                                                    expanded-args)
+                                          (lambda-body fn))
+                                    :path (reverse *structured-abbrev-path*))
+                              (cdr *structured-rewrite-log*)))
+                      #+acl2-loop-only nil
+                      (expand-abbreviations
+                       (lambda-body fn)
+                       (pairlis$ (lambda-formals fn) expanded-args)
+                       geneqv pequiv-info
+                       fns-to-be-ignored-by-rewrite
+                       (adjust-rdepth rdepth) step-limit ens wrld state ttree)))
                     (t
 
 ; Once upon a time (well into v1-9) we just returned (mv term ttree)
@@ -406,6 +448,28 @@
 ; so, well, the old code is shown on the first line of this comment.
 
                      (sl-let (body ttree)
+                             ; TRACE-LOG[infra/abbrev-path]: the OPEN body
+                             ; expansion (alist nil — formals free) rewrites
+                             ; INSIDE the still-standing lambda; its steps'
+                             ; positions are under a LAMBDA-BODY boundary
+                             ; frame, same symbolic-bkptr convention as the
+                             ; rewrite-side gstack path (S2 audit site 3).
+                             #-acl2-loop-only
+                             (let ((*structured-abbrev-path*
+                                    (cons (cons 'lambda-body
+                                                (if (consp (lambda-body fn))
+                                                    (car (lambda-body fn))
+                                                  (lambda-body fn)))
+                                          *structured-abbrev-path*)))
+                               (expand-abbreviations
+                                (lambda-body fn)
+                                nil
+                                geneqv
+                                nil ; pequiv-info
+                                fns-to-be-ignored-by-rewrite
+                                (adjust-rdepth rdepth) step-limit ens wrld state
+                                ttree))
+                             #+acl2-loop-only
                              (expand-abbreviations
                               (lambda-body fn)
                               nil
@@ -426,14 +490,41 @@
                               ((abbreviationp nil
                                               (lambda-formals fn)
                                               body)
-                               (expand-abbreviations
-                                body
-                                (pairlis$ (lambda-formals fn) expanded-args)
-                                geneqv pequiv-info
-                                fns-to-be-ignored-by-rewrite
-                                (adjust-rdepth rdepth) step-limit ens wrld state
-                                ttree))
+; TRACE-LOG[emit/expand-abbreviations/lambda-body]: rewrite-step (:lambda-body)
+; — the site-3 BETA, arm B: the OPEN-expanded body became an abbreviation, so
+; the lambda now opens. :lhs is the application with the EXPANDED body (the
+; term the chain has threaded to via the boundary-framed inner steps above).
+                               (prog2$
+                                #-acl2-loop-only
+                                (when (consp *structured-rewrite-log*)
+                                  (push (list :rewrite-step
+                                              :rune '(:lambda-body nil)
+                                              :origin 'expand-abbreviations/lambda-body
+                                              :equiv (structured-geneqv-equiv geneqv)
+                                              :lhs (mcons-term
+                                                    (list 'lambda
+                                                          (lambda-formals fn)
+                                                          body)
+                                                    expanded-args)
+                                              :rhs (sublis-var
+                                                    (pairlis$ (lambda-formals fn)
+                                                              expanded-args)
+                                                    body)
+                                              :path (reverse *structured-abbrev-path*))
+                                        (cdr *structured-rewrite-log*)))
+                                #+acl2-loop-only nil
+                                (expand-abbreviations
+                                 body
+                                 (pairlis$ (lambda-formals fn) expanded-args)
+                                 geneqv pequiv-info
+                                 fns-to-be-ignored-by-rewrite
+                                 (adjust-rdepth rdepth) step-limit ens wrld state
+                                 ttree)))
                               (t
+; No emission here (S2 audit site 3, arm C — DELIBERATE): the lambda SURVIVES
+; with the open-expanded body swapped in, and the reassembled term below is
+; byte-identical to what the chain has already threaded to via the
+; boundary-framed inner steps — there is no act to record and no term jump.
                                (mv step-limit
                                    (mcons-term (list 'lambda (lambda-formals fn)
                                                      body)

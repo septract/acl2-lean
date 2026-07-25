@@ -818,6 +818,20 @@
               :nume nil
               :equiv 'iff)))
 
+; TRACE-LOG[infra/geneqv-equiv]: summarize a geneqv for :EQUIV emission (S2b
+; design note 2026-07-25, ratified option B): nil -> EQUAL (identity read);
+; the *geneqv-iff* constant -> IFF (structural read); anything else -> the
+; VERBATIM list of :equiv names, a shape the Lean parser rejects loudly (the
+; named frontier for generated relations no single symbol names honestly).
+; Used by every body-rewrite emission that previously hardcoded 'equal over
+; a geneqv-maintained rewrite (the S2 audit's false-equiv defect).
+#-acl2-loop-only
+(defun structured-geneqv-equiv (geneqv)
+  (cond ((null geneqv) 'equal)
+        ((equal geneqv *geneqv-iff*) 'iff)
+        (t (mapcar (lambda (rule) (access congruence-rule rule :equiv))
+                   geneqv))))
+
 ; This completes our general essay on the subject.  The theorems proved above
 ; are mentioned by name elsewhere in our code.  In addition, various details
 ; are discussed elsewhere.  For a simple example of how all of this works
@@ -17333,11 +17347,34 @@ its attachment is ignored during proofs"))))
 
                       (cond
                        ((flambda-applicationp term)
-                        (rewrite-entry
-                         (rewrite (lambda-body fn)
-                                  (pairlis$ (lambda-formals fn)
-                                            rewritten-args)
-                                  'lambda-body)))
+; TRACE-LOG[emit/rewrite/lambda-body-quoted]: rewrite-step (:lambda-body) — the
+; BETA step at rewrite's ALL-QUOTEPS lambda fast path (S2 audit site 2,
+; 2026-07-25): the actuals reduced to quoted constants, so the beta happens
+; HERE rather than in rewrite-fncall; without an adopting step the LAMBDA-BODY
+; inner block was silently mis-parented onto the next chain step (pin book
+; p2-beta-quoted-actuals). No rejection arm on this path, so no rollback
+; checkpoint is needed. :lhs carries the application with the REWRITTEN
+; (quoted) actuals — the term the beta actually replaced.
+                        (sl-let
+                         (rewritten-body ttree)
+                         (rewrite-entry
+                          (rewrite (lambda-body fn)
+                                   (pairlis$ (lambda-formals fn)
+                                             rewritten-args)
+                                   'lambda-body))
+                         (progn$
+                          #-acl2-loop-only
+                          (when (consp *structured-rewrite-log*)
+                            (push (list :rewrite-step
+                                        :path (structured-rewrite-path)
+                                        :rune '(:lambda-body nil)
+                                        :origin 'rewrite/lambda-body-quoted
+                                        :equiv (structured-geneqv-equiv geneqv)
+                                        :lhs (fcons-term fn rewritten-args)
+                                        :rhs rewritten-body)
+                                  (cdr *structured-rewrite-log*)))
+                          #+acl2-loop-only nil
+                          (mv step-limit rewritten-body ttree))))
                        (t
                         (let ((ok-to-force (ok-to-force rcnst)))
                           (mv-let
@@ -20425,7 +20462,8 @@ its attachment is ignored during proofs"))))
                     (push (list :rewrite-step
                                 :path (structured-rewrite-path)
                                 :rune '(:lambda-body nil)
-                                :origin 'rewrite-fncall/lambda-body :equiv 'equal
+                                :origin 'rewrite-fncall/lambda-body
+                                :equiv (structured-geneqv-equiv geneqv)
                                 :lhs term
                                 :rhs rewritten-body)
                           (cdr *structured-rewrite-log*)))
@@ -20592,7 +20630,8 @@ its attachment is ignored during proofs"))))
                                     (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                 :rune rune
-                                                :origin 'fncall/non-recursive :equiv 'equal
+                                                :origin 'fncall/non-recursive
+                                                :equiv (structured-geneqv-equiv geneqv)
                                                 :lhs term
                                                 :rhs rewritten-body
                                                 :subst unify-subst)
@@ -20710,7 +20749,8 @@ its attachment is ignored during proofs"))))
                                             (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                                         :rune rune
-                                                        :origin 'fncall/recursive :equiv 'equal
+                                                        :origin 'fncall/recursive
+                                                :equiv (structured-geneqv-equiv geneqv)
                                                         :lhs term
                                                         :rhs rewritten-body
                                                         :subst unify-subst)
@@ -20728,7 +20768,8 @@ its attachment is ignored during proofs"))))
                                   (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                               :rune rune
-                                              :origin 'fncall/abbreviation :equiv 'equal
+                                              :origin 'fncall/abbreviation
+                                                :equiv (structured-geneqv-equiv geneqv)
                                               :lhs term
                                               :rhs rewritten-body
                                               :subst unify-subst)
@@ -20820,9 +20861,32 @@ its attachment is ignored during proofs"))))
      (mv-let (new-term hyp unify-subst rune rcnst)
              (expand-permission-result term rcnst geneqv wrld)
              (cond (new-term
+; TRACE-LOG[emit/expand-hint/lambda-body]: rewrite-step (:lambda-body) — the
+; BETA step of an :expand :lambdas hint (S2 audit site 4): the permission
+; preempts rewrite-fncall's default lambda handling, so the body rewrite's
+; KIND EXPANSION inner block had no adopting step. The assert$ guarantees
+; rune and hyp are nil here (expand-permission-result1's :lambdas arm), so
+; the beta marker rune is correct by construction. :lhs carries the
+; application (actuals already rewritten by the caller, as at the
+; rewrite-fncall site).
                     (assert$ (and (null rune) (null hyp))
-                             (rewrite-entry (rewrite new-term unify-subst
-                                                     'expansion))))
+                             (sl-let
+                              (rewritten-body ttree)
+                              (rewrite-entry (rewrite new-term unify-subst
+                                                      'expansion))
+                              (progn$
+                               #-acl2-loop-only
+                               (when (consp *structured-rewrite-log*)
+                                 (push (list :rewrite-step
+                                             :path (structured-rewrite-path)
+                                             :rune '(:lambda-body nil)
+                                             :origin 'expand-hint/lambda-body
+                                             :equiv (structured-geneqv-equiv geneqv)
+                                             :lhs term
+                                             :rhs rewritten-body)
+                                       (cdr *structured-rewrite-log*)))
+                               #+acl2-loop-only nil
+                               (mv step-limit rewritten-body ttree)))))
                    (t (rewrite-entry (rewrite-fncall nil term))))))
     (t (sl-let
         (rewrittenp rewritten-term ttree)
@@ -20964,7 +21028,8 @@ its attachment is ignored during proofs"))))
                               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                           :rune rune
-                                          :origin 'fncall/expand-permission :equiv 'equal
+                                          :origin 'fncall/expand-permission
+                                          :equiv (structured-geneqv-equiv geneqv)
                                           :lhs term
                                           :rhs final-term
                                           :subst alist)
