@@ -458,10 +458,17 @@
                              ; rewrite-side gstack path (S2 audit site 3).
                              #-acl2-loop-only
                              (let ((*structured-abbrev-path*
+                                    ; frame fn must be a SYMBOL (boundary
+                                    ; frames are consumed by count; the fn is
+                                    ; an anchor): a cons-headed body (a NESTED
+                                    ; lambda application — cov-mv-let) anchors
+                                    ; as LAMBDA, not the raw lambda term
                                     (cons (cons 'lambda-body
-                                                (if (consp (lambda-body fn))
-                                                    (car (lambda-body fn))
-                                                  (lambda-body fn)))
+                                                (cond ((atom (lambda-body fn))
+                                                       (lambda-body fn))
+                                                      ((consp (ffn-symb (lambda-body fn)))
+                                                       'lambda)
+                                                      (t (ffn-symb (lambda-body fn)))))
                                           *structured-abbrev-path*)))
                                (expand-abbreviations
                                 (lambda-body fn)
