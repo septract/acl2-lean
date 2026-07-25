@@ -146,9 +146,11 @@
     (cond
      (wonp
 ; TRACE-LOG[emit/abbreviation-expansion]: log an abbreviation-expansion rewrite-step
-; in expand-abbreviations. The :rhs is the rule's INSTANTIATED rhs (sublis-var of the
-; unify-subst) — the faithful per-step result; its further expansion (the recursive
-; expand-abbreviations call below) is logged as its own steps. (Formerly a sentinel
+; in expand-abbreviations. The :rhs is the rule's INSTANTIATED rhs — the PLAIN
+; substitution (structured-sublis-var-plain; sublis-var's cons-term const-folds
+; ground calls, jumping ahead of the recursion's own recorded steps — S2b fix
+; 2026-07-25) — the faithful per-step result; its further expansion (the
+; recursive expand-abbreviations call below) is logged as its own steps. (Formerly a sentinel
 ; :abbreviation-expansion keyword, which lost the real RHS.)
       (prog2$
        #-acl2-loop-only
@@ -161,7 +163,7 @@
                      ; R-parameterized judgment (or fails closed).
                      :equiv (access rewrite-rule lemma :equiv)
                      :lhs term
-                     :rhs (sublis-var unify-subst
+                     :rhs (structured-sublis-var-plain unify-subst
                                       (access rewrite-rule lemma :rhs))
                      ; TRACE-LOG[emit/abbreviation-expansion]: the unify-subst
                      ; binding the rule's variables to the redex's terms — the
@@ -329,7 +331,7 @@
                                     :origin 'expand-abbreviations/lambda-body
                                     :equiv (structured-geneqv-equiv geneqv)
                                     :lhs (mcons-term fn expanded-args)
-                                    :rhs (sublis-var
+                                    :rhs (structured-sublis-var-plain
                                           (pairlis$ (lambda-formals fn)
                                                     expanded-args)
                                           (lambda-body fn))
@@ -405,7 +407,7 @@
 ; TRACE-LOG[emit/expand-abbreviations/lambda-body]: rewrite-step (:lambda-body)
 ; — the BETA step at preprocess (S2 audit site 3, arm A: abbreviation body;
 ; pin book p2-beta-preprocess). Entry-style like the abbreviation-expansion
-; push above: :rhs is the sublis-var substituted body — the per-step result —
+; push above: :rhs is the PLAIN substituted body — the per-step result —
 ; and its further expansion (the recursion below) is logged as its own steps,
 ; located inside the reduct that now stands at the application's position.
                      (prog2$
@@ -416,7 +418,7 @@
                                     :origin 'expand-abbreviations/lambda-body
                                     :equiv (structured-geneqv-equiv geneqv)
                                     :lhs (mcons-term fn expanded-args)
-                                    :rhs (sublis-var
+                                    :rhs (structured-sublis-var-plain
                                           (pairlis$ (lambda-formals fn)
                                                     expanded-args)
                                           (lambda-body fn))
@@ -506,7 +508,7 @@
                                                           (lambda-formals fn)
                                                           body)
                                                     expanded-args)
-                                              :rhs (sublis-var
+                                              :rhs (structured-sublis-var-plain
                                                     (pairlis$ (lambda-formals fn)
                                                               expanded-args)
                                                     body)

@@ -825,6 +825,24 @@
 ; named frontier for generated relations no single symbol names honestly).
 ; Used by every body-rewrite emission that previously hardcoded 'equal over
 ; a geneqv-maintained rewrite (the S2 audit's false-equiv defect).
+; TRACE-LOG[infra/sublis-var-plain]: PLAIN (non-normalizing) substitution for
+; emitted :RHS instantiation (S2b, 2026-07-25). sublis-var builds with
+; cons-term, which CONST-FOLDS ground primitive calls — so an entry-style
+; step's recorded rhs jumped AHEAD of the recursion's own recorded steps
+; (pin book p2-beta-preprocess: the beta's rhs read '9 while the
+; (BINARY-* '3 '3) => '9 fold followed as its own step — an incoherent
+; chain). The per-step result must be the substitution ALONE; the folds are
+; the next steps.
+#-acl2-loop-only
+(defun structured-sublis-var-plain (alist term)
+  (cond ((variablep term)
+         (let ((pair (assoc-eq term alist)))
+           (if pair (cdr pair) term)))
+        ((fquotep term) term)
+        (t (cons (ffn-symb term)
+                 (mapcar (lambda (a) (structured-sublis-var-plain alist a))
+                         (fargs term))))))
+
 #-acl2-loop-only
 (defun structured-geneqv-equiv (geneqv)
   (cond ((null geneqv) 'equal)
