@@ -12056,7 +12056,7 @@
                          (cdr *structured-termination-clauses*))
                     #+acl2-loop-only nil)
                    (state
-                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3~@4)~%"
+                    (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3~@4~@5)~%"
                          (list (cons #\0 name)
                                (cons #\1 formals)
                                (cons #\2 body)
@@ -12090,7 +12090,24 @@
                                                   (gz-termination-clauses
                                                    clique (w state))))
                                            #+acl2-loop-only " :INCLUDED T")
-                                          (t ""))))
+                                          (t "")))
+; TRACE-LOG[emit/defun]: (provenance field, audit 2026-07-26 F1) every
+; world-entering :DEFUN carries an explicit :SOURCE — the Lean side admits
+; only recognized provenance and HARD-FAILS otherwise. :LOCAL-WITNESS marks
+; an event admitted under in-local-flg (the `local` macro's binding): its
+; world effects are DISCARDED from the surrounding scope's final world
+; (encapsulate pass 2 / certification skip it), so a mirror stated over it
+; would be about the witness, not the constrained function — the
+; statement-substitution class (cov-encapsulate reported 2/2 replayed
+; ABOUT THE WITNESS; BUG-019). :INCLUDE-BOOK marks a re-emission during
+; include-book; :ADMITTED is an ordinary live admission.
+                               (cons #\5 (cond
+                                           ((f-get-global 'in-local-flg state)
+                                            " :SOURCE :LOCAL-WITNESS")
+                                           ((global-val 'include-book-path
+                                                        (w state))
+                                            " :SOURCE :INCLUDE-BOOK")
+                                           (t " :SOURCE :ADMITTED"))))
                          (proofs-co state) state nil))
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
 ; basic type-set, IF-leaf type-sets) as proof data alongside its :DEFUN.

@@ -17835,20 +17835,22 @@ its attachment is ignored during proofs"))))
                 (cdr *structured-rewrite-log*))
           ; TRACE-LOG[emit/rewrite-if/constant-test]: rewrite-step (:if-simplification) in rewrite-if [constant test]
           ; left/right are the IF branches at the FORMAL level (the rewrite alist
-          ; is applied lazily as we recur into them).  Instantiate them via
-          ; sublis-var so the logged term is at the call-site level -- consistent
-          ; with the sibling recognizer/cdr-cons steps and free of formal-vs-clause
-          ; variable capture.  This is logging-only and does not affect rewriting.
+          ; is applied lazily as we recur into them).  Instantiate them PLAIN
+          ; (structured-sublis-var-plain) and build the IF with a raw cons —
+          ; audit 2026-07-26 F3: mcons-term*/sublis-var const-fold, which
+          ; collapsed 143 of these records into ':LHS = :RHS' tautologies
+          ; ("'4 rewrites to '4") in place of the real IF-collapse step the
+          ; replay must mirror. Logging-only; does not affect rewriting.
           (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                       :rune '(:if-simplification nil)
                       :origin 'rewrite-if/constant-test :equiv 'equal
-                      :lhs (mcons-term* 'if test
-                                        (sublis-var alist left)
-                                        (sublis-var alist right))
+                      :lhs (list 'if test
+                                 (structured-sublis-var-plain alist left)
+                                 (structured-sublis-var-plain alist right))
                       :rhs (if (cadr test)
-                               (sublis-var alist left)
-                               (sublis-var alist right)))
+                               (structured-sublis-var-plain alist left)
+                               (structured-sublis-var-plain alist right)))
                 (cdr *structured-rewrite-log*)))
         #+acl2-loop-only nil
         (if (cadr test)
