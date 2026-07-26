@@ -265,9 +265,30 @@
                                (fn-rune-nume 'return-last nil nil wrld)
                                ttree)))
        ((eq (ffn-symb term) 'hide)
-        (mv step-limit
-            (sublis-var alist term)
-            ttree))
+; TRACE-LOG[emit/expand-abbreviations/hide-subst]: rewrite-step
+; (:hide-normalize) — the HIDE arm substitutes with sublis-var, whose
+; cons-term CONST-FOLDS inside the hide with no recursion and hence no
+; per-fold steps (S2b audit F2: after the plain-substitution fix, a beta
+; reduct containing (HIDE (BINARY-* '3 '3)) jumped to (HIDE '9) with
+; nothing recorded). Emitted only when the fold changed something; the
+; marker rune follows the (:LAMBDA-BODY NIL)/(:IF-SIMPLIFICATION NIL)
+; synthesized-rune convention.
+        (let ((hide-folded (sublis-var alist term)))
+          (progn$
+           #-acl2-loop-only
+           (when (consp *structured-rewrite-log*)
+             (let ((hide-plain (structured-sublis-var-plain alist term)))
+               (when (not (equal hide-plain hide-folded))
+                 (push (list :rewrite-step
+                             :rune '(:hide-normalize nil)
+                             :origin 'expand-abbreviations/hide-subst
+                             :equiv 'equal
+                             :lhs hide-plain
+                             :rhs hide-folded
+                             :path (reverse *structured-abbrev-path*))
+                       (cdr *structured-rewrite-log*)))))
+           #+acl2-loop-only nil
+           (mv step-limit hide-folded ttree))))
        (t
         (mv-let
          (deep-pequiv-lst shallow-pequiv-lst)
@@ -329,7 +350,14 @@
                         (push (list :rewrite-step
                                     :rune '(:lambda-body nil)
                                     :origin 'expand-abbreviations/lambda-body
-                                    :equiv (structured-geneqv-equiv geneqv)
+                                    ; ENTRY-STYLE beta: the step IS the substitution
+                                    ; ((lambda formals body) args) = body/args — an
+                                    ; EQUAL fact regardless of the ambient geneqv
+                                    ; (S2b audit F1: the context label under-claimed
+                                    ; pure betas as IFF and cost coverage; the
+                                    ; geneqv label belongs to the EXIT-style sites
+                                    ; 1/2/4, whose rhs is the REWRITTEN body).
+                                    :equiv 'equal
                                     :lhs (mcons-term fn expanded-args)
                                     :rhs (structured-sublis-var-plain
                                           (pairlis$ (lambda-formals fn)
@@ -416,7 +444,14 @@
                         (push (list :rewrite-step
                                     :rune '(:lambda-body nil)
                                     :origin 'expand-abbreviations/lambda-body
-                                    :equiv (structured-geneqv-equiv geneqv)
+                                    ; ENTRY-STYLE beta: the step IS the substitution
+                                    ; ((lambda formals body) args) = body/args — an
+                                    ; EQUAL fact regardless of the ambient geneqv
+                                    ; (S2b audit F1: the context label under-claimed
+                                    ; pure betas as IFF and cost coverage; the
+                                    ; geneqv label belongs to the EXIT-style sites
+                                    ; 1/2/4, whose rhs is the REWRITTEN body).
+                                    :equiv 'equal
                                     :lhs (mcons-term fn expanded-args)
                                     :rhs (structured-sublis-var-plain
                                           (pairlis$ (lambda-formals fn)
@@ -509,7 +544,14 @@
                                   (push (list :rewrite-step
                                               :rune '(:lambda-body nil)
                                               :origin 'expand-abbreviations/lambda-body
-                                              :equiv (structured-geneqv-equiv geneqv)
+                                              ; ENTRY-STYLE beta: the step IS the substitution
+                                    ; ((lambda formals body) args) = body/args — an
+                                    ; EQUAL fact regardless of the ambient geneqv
+                                    ; (S2b audit F1: the context label under-claimed
+                                    ; pure betas as IFF and cost coverage; the
+                                    ; geneqv label belongs to the EXIT-style sites
+                                    ; 1/2/4, whose rhs is the REWRITTEN body).
+                                    :equiv 'equal
                                               :lhs (mcons-term
                                                     (list 'lambda
                                                           (lambda-formals fn)

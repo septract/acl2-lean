@@ -136,7 +136,13 @@
                                           '(rewrite-with-lemma
                                             rewrite-quoted-constant-with-lemma)))
                              'hyp
-                           bkptr)))
+                           bkptr))
+                     ; a cons fn (a lambda term) is legal only under a NUMERIC
+                     ; bkptr (the argLam frame); a BOUNDARY frame whose term is
+                     ; itself a lambda application (nested lets — S2b audit F3)
+                     ; anchors as the symbol LAMBDA, same as the abbrev-path
+                     ; twin (frames are consumed by count; fn is an anchor)
+                     (fn (if (and (consp fn) (not (integerp bk))) 'lambda fn)))
                 (push (cons bk fn) path))))
           (setq tail (cdr tail)))
     path))
@@ -818,13 +824,6 @@
               :nume nil
               :equiv 'iff)))
 
-; TRACE-LOG[infra/geneqv-equiv]: summarize a geneqv for :EQUIV emission (S2b
-; design note 2026-07-25, ratified option B): nil -> EQUAL (identity read);
-; the *geneqv-iff* constant -> IFF (structural read); anything else -> the
-; VERBATIM list of :equiv names, a shape the Lean parser rejects loudly (the
-; named frontier for generated relations no single symbol names honestly).
-; Used by every body-rewrite emission that previously hardcoded 'equal over
-; a geneqv-maintained rewrite (the S2 audit's false-equiv defect).
 ; TRACE-LOG[infra/sublis-var-plain]: PLAIN (non-normalizing) substitution for
 ; emitted :RHS instantiation (S2b, 2026-07-25). sublis-var builds with
 ; cons-term, which CONST-FOLDS ground primitive calls — so an entry-style
@@ -843,10 +842,22 @@
                  (mapcar (lambda (a) (structured-sublis-var-plain alist a))
                          (fargs term))))))
 
+; TRACE-LOG[infra/geneqv-equiv]: summarize a geneqv for :EQUIV emission (S2b
+; design note 2026-07-25, ratified option B + audit amendment 2026-07-26):
+; nil -> EQUAL; a SINGLETON -> its record's :equiv symbol — ACL2's own
+; congruence essay (above): "the relation denoted by {e1} is e1", WHATEVER
+; rune established it, which subsumes the earlier structural comparison
+; against *geneqv-iff* (that check missed world-sourced singleton iff
+; geneqvs carrying real :CONGRUENCE runes — the cov-defchoose (IFF) pin);
+; anything else -> the VERBATIM list of :equiv names (the named frontier
+; for generated relations no single symbol names honestly). Used by every
+; EXIT-style body-rewrite emission (rhs = the REWRITTEN body) that
+; previously hardcoded 'equal.
 #-acl2-loop-only
 (defun structured-geneqv-equiv (geneqv)
   (cond ((null geneqv) 'equal)
-        ((equal geneqv *geneqv-iff*) 'iff)
+        ((null (cdr geneqv))
+         (access congruence-rule (car geneqv) :equiv))
         (t (mapcar (lambda (rule) (access congruence-rule rule :equiv))
                    geneqv))))
 
@@ -20880,13 +20891,17 @@ its attachment is ignored during proofs"))))
              (expand-permission-result term rcnst geneqv wrld)
              (cond (new-term
 ; TRACE-LOG[emit/expand-hint/lambda-body]: rewrite-step (:lambda-body) — the
-; BETA step of an :expand :lambdas hint (S2 audit site 4): the permission
+; BETA step of a lambda expand-permission (S2 audit site 4): the permission
 ; preempts rewrite-fncall's default lambda handling, so the body rewrite's
-; KIND EXPANSION inner block had no adopting step. The assert$ guarantees
-; rune and hyp are nil here (expand-permission-result1's :lambdas arm), so
-; the beta marker rune is correct by construction. :lhs carries the
-; application (actuals already rewritten by the caller, as at the
-; rewrite-fncall site).
+; KIND EXPANSION inner block had no adopting step. Rune and hyp are nil for
+; EVERY lambda-application permission — the :lambdas arm
+; (expand-permission-result1) and the user/induction expand-hint
+; constructors (history-management.lisp / simplify.lisp) all build lambda
+; entries with :rune nil :hyp nil and a beta-reduct :rhs — so the beta
+; marker rune is honest for all of them (the pre-existing UPSTREAM assert$
+; double-checks; S2b audit F4 corrected this comment's reasoning). :lhs
+; carries the application (actuals already rewritten by the caller, as at
+; the rewrite-fncall site).
                     (assert$ (and (null rune) (null hyp))
                              (sl-let
                               (rewritten-body ttree)
