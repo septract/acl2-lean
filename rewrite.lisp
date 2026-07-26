@@ -5471,7 +5471,12 @@ its attachment is ignored during proofs"))))
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                             :rune (access recognizer-tuple recog-tuple :rune)
                             :origin 'recognizer/true :equiv 'equal
-                            :lhs (mcons-term*
+                            :lhs ; fcons-term* NOT mcons-term* (audit F3 residue,
+                                  ; 2026-07-26): cons-term EVALUATES a
+                                  ; recognizer on a quoted arg, collapsing
+                                  ; the record to a 'T ⇒ 'T tautology in
+                                  ; place of the real step
+                                  (fcons-term*
                                   (access recognizer-tuple recog-tuple :fn)
                                   arg)
                             :rhs *t*
@@ -5510,7 +5515,8 @@ its attachment is ignored during proofs"))))
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                      :rune (access recognizer-tuple recog-tuple :rune)
                      :origin 'recognizer/false :equiv 'equal
-                     :lhs (mcons-term*
+                     :lhs ; fcons-term*: see the recognizer/true twin above
+                     (fcons-term*
                            (access recognizer-tuple recog-tuple :fn)
                            arg)
                      :rhs *nil*
@@ -18869,6 +18875,18 @@ its attachment is ignored during proofs"))))
 ; a type-alist.  Here we perform that extension by taking the first element of
 ; unify-subst-list.
 
+   (let #-acl2-loop-only
+        ; TRACE-LOG[infra/free-log-tail]: checkpoint at each free-variable
+        ; relief ATTEMPT (audit 2026-07-26 F4): a failed binding's backchain
+        ; steps leaked into the committed HYP block when a LATER binding
+        ; succeeded — the whole-relieve-hyps rollback (infra/hyp-log-tail)
+        ; fires only when the rule fails outright. Restored at this
+        ; function's own retry arm; (cons t tail) keeps an empty tail
+        ; truthy, as in the sibling checkpoints.
+        ((saved-free-log-tail
+          (when (consp *structured-rewrite-log*)
+            (cons t (cdr *structured-rewrite-log*)))))
+        #+acl2-loop-only ()
    (let ((new-unify-subst
           (extend-unify-subst (car unify-subst-lst) unify-subst)))
      (mv-let
@@ -18920,7 +18938,16 @@ its attachment is ignored during proofs"))))
                     nil ; allp
                     rw-cache-alist-new))
                (t ; try the next unify-subst in unify-subst-lst
-                (rewrite-entry-extending-failure
+                (prog2$
+                 ; TRACE-LOG[infra/free-log-tail]: roll back the FAILED
+                 ; attempt's leaked steps before trying the next candidate
+                 #-acl2-loop-only
+                 (when (and (consp *structured-rewrite-log*)
+                            saved-free-log-tail)
+                   (setf (cdr *structured-rewrite-log*)
+                         (cdr saved-free-log-tail)))
+                 #+acl2-loop-only nil
+                 (rewrite-entry-extending-failure
                  new-unify-subst
                  failure-reason
                  (relieve-hyps1-unify-subst-lst
@@ -18930,7 +18957,7 @@ its attachment is ignored during proofs"))))
                   unify-subst0 ttree0 allp
                   rw-cache-alist rw-cache-alist-new)
                  :obj nil :geneqv nil :pequiv-info nil ; all ignored
-                 :ttree (accumulate-rw-cache t ttree1 ttree0)))))))))))))
+                 :ttree (accumulate-rw-cache t ttree1 ttree0)))))))))))))))
 
 (defun relieve-hyps1 (rune target hyps backchain-limit-lst
                            unify-subst bkptr unify-subst0
@@ -19148,6 +19175,18 @@ its attachment is ignored during proofs"))))
   (the-mv
    7
    #.*fixnum-type*
+   (let #-acl2-loop-only
+        ; TRACE-LOG[infra/free-log-tail]: checkpoint at each free-variable
+        ; relief ATTEMPT (audit 2026-07-26 F4): a failed binding's backchain
+        ; steps leaked into the committed HYP block when a LATER binding
+        ; succeeded — the whole-relieve-hyps rollback (infra/hyp-log-tail)
+        ; fires only when the rule fails outright. Restored at this
+        ; function's own retry arm; (cons t tail) keeps an empty tail
+        ; truthy, as in the sibling checkpoints.
+        ((saved-free-log-tail
+          (when (consp *structured-rewrite-log*)
+            (cons t (cdr *structured-rewrite-log*)))))
+        #+acl2-loop-only ()
    (mv-let
     (ans new-unify-subst new-ttree new-rest-type-alist)
     (search-type-alist+ term typ rest-type-alist unify-subst ttree wrld)
@@ -19232,7 +19271,16 @@ its attachment is ignored during proofs"))))
                     nil ; allp
                     rw-cache-alist-new))
                (t ; look for the next binding in the type-alist
-                (rewrite-entry-extending-failure
+                (prog2$
+                 ; TRACE-LOG[infra/free-log-tail]: roll back the FAILED
+                 ; attempt's leaked steps before trying the next candidate
+                 #-acl2-loop-only
+                 (when (and (consp *structured-rewrite-log*)
+                            saved-free-log-tail)
+                   (setf (cdr *structured-rewrite-log*)
+                         (cdr saved-free-log-tail)))
+                 #+acl2-loop-only nil
+                 (rewrite-entry-extending-failure
                  new-unify-subst
                  failure-reason
                  (relieve-hyps1-free-1 term typ hyp new-rest-type-alist
@@ -19244,7 +19292,7 @@ its attachment is ignored during proofs"))))
                                        unify-subst0 ttree0 allp
                                        rw-cache-alist rw-cache-alist-new)
                  :obj nil :geneqv nil :pequiv-info nil ; all ignored
-                 :ttree (accumulate-rw-cache t ttree1 ttree)))))))))))
+                 :ttree (accumulate-rw-cache t ttree1 ttree))))))))))))
      (t ; failed to relieve hyp using rest-type-alist
       (rewrite-entry
        (relieve-hyps1-free-2 hyp
@@ -19260,7 +19308,7 @@ its attachment is ignored during proofs"))))
                              unify-subst0 ttree0 allp
                              rw-cache-alist rw-cache-alist-new)
        :obj nil :geneqv nil :pequiv-info nil ; all ignored
-       ))))))
+       )))))))
 
 (defun relieve-hyps1-free-2
     (hyp lemmas forcer-fn forcep ens force-flg
@@ -19286,6 +19334,18 @@ its attachment is ignored during proofs"))))
   (the-mv
    7
    #.*fixnum-type*
+   (let #-acl2-loop-only
+        ; TRACE-LOG[infra/free-log-tail]: checkpoint at each free-variable
+        ; relief ATTEMPT (audit 2026-07-26 F4): a failed binding's backchain
+        ; steps leaked into the committed HYP block when a LATER binding
+        ; succeeded — the whole-relieve-hyps rollback (infra/hyp-log-tail)
+        ; fires only when the rule fails outright. Restored at this
+        ; function's own retry arm; (cons t tail) keeps an empty tail
+        ; truthy, as in the sibling checkpoints.
+        ((saved-free-log-tail
+          (when (consp *structured-rewrite-log*)
+            (cons t (cdr *structured-rewrite-log*)))))
+        #+acl2-loop-only ()
    (cond
     ((endp lemmas)
 
@@ -19456,7 +19516,16 @@ its attachment is ignored during proofs"))))
                         (accumulate-rw-cache t ttree1 ttree0)
                         nil rw-cache-alist-new))
                    (t
-                    (rewrite-entry-extending-failure
+                    (prog2$
+                 ; TRACE-LOG[infra/free-log-tail]: roll back the FAILED
+                 ; attempt's leaked steps before trying the next candidate
+                 #-acl2-loop-only
+                 (when (and (consp *structured-rewrite-log*)
+                            saved-free-log-tail)
+                   (setf (cdr *structured-rewrite-log*)
+                         (cdr saved-free-log-tail)))
+                 #+acl2-loop-only nil
+                 (rewrite-entry-extending-failure
                      new-unify-subst
                      failure-reason
                      (relieve-hyps1-free-2
@@ -19464,14 +19533,14 @@ its attachment is ignored during proofs"))))
                       target hyps backchain-limit-lst unify-subst bkptr
                       unify-subst0 ttree0 allp rw-cache-alist rw-cache-alist-new)
                      :obj nil :geneqv nil :pequiv-info nil ; all ignored
-                     :ttree (accumulate-rw-cache t ttree1 ttree)))))))))))
+                     :ttree (accumulate-rw-cache t ttree1 ttree))))))))))))
         (t (rewrite-entry
             (relieve-hyps1-free-2
              hyp nil forcer-fn forcep ens force-flg rune
              target hyps backchain-limit-lst unify-subst bkptr
              unify-subst0 ttree0 allp rw-cache-alist rw-cache-alist-new)
             :obj nil :geneqv nil :pequiv-info nil ; all ignored
-            ))))))))
+            )))))))))
 
 (defun relieve-hyps (rune target hyps backchain-limit-lst
                           unify-subst allp ; &extra formals

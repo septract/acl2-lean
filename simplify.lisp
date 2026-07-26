@@ -6930,6 +6930,13 @@
                           (push (list :rewrite-step
                                       :rune '(:fake-rune-for-type-set nil)
                                       :origin 'preprocess/type-set-fc :equiv 'equal
+                                      ; a clause that is already ('T) records
+                                      ; the DEGENERATE-BUT-FAITHFUL 'T ⇒ 'T
+                                      ; (disjoin of the true literal IS the
+                                      ; lhs; audit F3-residue triage
+                                      ; 2026-07-26: deliberate identity, not
+                                      ; a folding artifact — fcons-term-built
+                                      ; disjoin never folds)
                                       :lhs (disjoin cl)
                                       :rhs *t*)
                                 (cdr *structured-rewrite-log*)))
