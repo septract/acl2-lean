@@ -17779,10 +17779,24 @@ its attachment is ignored during proofs"))))
                                          (mcons-term* 'if test left right)))
                      ; TRACE-LOG[emit/if-finish/combined]: rewrite-step (:if-simplification) for
                      ; the simplified IF in rewrite-if-finish (paired with the end-if above).
+                     ; The :equiv is IFF exactly when the OR-SHAPE collapse fired
+                     ; (rewritten-left := *t* above, geneqv-iff-guarded: (if a a b)
+                     ; => (if a 't b) is truthiness-only) — the same condition
+                     ; recomputed; every other combined step is value-preserving.
+                     ; (The must-be-true arm's collapse sibling returns 'T with no
+                     ; step of its own — a consumer meeting it fails closed on the
+                     ; chain mismatch; label it when a record demands it.)
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
-                                     :origin 'if-finish/combined :equiv 'equal
+                                     :origin 'if-finish/combined
+                                     :equiv (if (and unrewritten-test
+                                                     (geneqv-refinementp
+                                                      'iff geneqv wrld)
+                                                     (equal unrewritten-test
+                                                            left))
+                                                'iff
+                                              'equal)
                                      :lhs (mcons-term* 'if test left right)
                                      :rhs rewritten-term)
                                (cdr *structured-rewrite-log*))))
