@@ -607,18 +607,40 @@
 ; idea, but we still keep IMPLIES in the list for tautologyp because
 ; if we can decide it's a tautology by expanding, all the better.
 
-              (with-accumulated-persistence
-               (fn-rune-nume fn nil nil wrld)
-               ((the #.*fixnum-type* step-limit) term ttree)
-               t
-               (expand-abbreviations (bbody fn)
-                                     (pairlis$ (formals fn wrld) expanded-args)
-                                     geneqv pequiv-info
-                                     fns-to-be-ignored-by-rewrite
-                                     (adjust-rdepth rdepth)
-                                     step-limit ens wrld state
-                                     (push-lemma (fn-rune-nume fn nil nil wrld)
-                                                 ttree))))
+; TRACE-LOG[emit/expand-abbreviations/nonrec-body]: rewrite-step (:definition fn)
+; — the boot-strap non-rec arm (IFF + the listed no-ops) adopts fn's body with
+; the expanded args bound, but recorded only the rune (ttree): the body adoption
+; itself was invisible, so a preprocess chain through e.g. (IFF p q) => body/args
+; could not thread its subsequent recorded steps (ORDEREDP-APPEND, the G1 iff
+; rung). Entry-style like the beta arms: :rhs is the PLAIN substituted body; the
+; recursion's own steps are logged separately.
+              (prog2$
+               #-acl2-loop-only
+               (when (consp *structured-rewrite-log*)
+                 (push (list :rewrite-step
+                             :rune (fn-rune-nume fn nil nil wrld)
+                             :origin 'expand-abbreviations/nonrec-body
+                             :equiv 'equal
+                             :lhs term
+                             :rhs (structured-sublis-var-plain
+                                   (pairlis$ (formals fn wrld) expanded-args)
+                                   (bbody fn))
+                             :subst (pairlis$ (formals fn wrld) expanded-args)
+                             :path (reverse *structured-abbrev-path*))
+                       (cdr *structured-rewrite-log*)))
+               #+acl2-loop-only nil
+               (with-accumulated-persistence
+                (fn-rune-nume fn nil nil wrld)
+                ((the #.*fixnum-type* step-limit) term ttree)
+                t
+                (expand-abbreviations (bbody fn)
+                                      (pairlis$ (formals fn wrld) expanded-args)
+                                      geneqv pequiv-info
+                                      fns-to-be-ignored-by-rewrite
+                                      (adjust-rdepth rdepth)
+                                      step-limit ens wrld state
+                                      (push-lemma (fn-rune-nume fn nil nil wrld)
+                                                  ttree)))))
 
 ; Rockwell Addition:  We are expanding abbreviations.  This is new treatment
 ; of IF, which didn't used to receive any special notice.
