@@ -5287,12 +5287,15 @@ its attachment is ignored during proofs"))))
                 (ts-disjointp ts *ts-nil*))
            (progn$
             ; TRACE-LOG[emit/if11/type-alist-disjoint]: rewrite-step (:type-alist) in rewrite-if11 [disjoint case]
+            ; BUG-022 (pre-merge audit 2026-07-30): this arm is guarded on
+            ; *geneqv-iff* — term's VALUE is truthy (type-set disjoint from
+            ; nil), not necessarily 't, so term => 'T is IFF-only.
             #-acl2-loop-only
             (when (and (consp *structured-rewrite-log*) t)
               (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                           :rune '(:type-alist nil)
-                          :origin 'if11/type-alist-disjoint :equiv 'equal
+                          :origin 'if11/type-alist-disjoint :equiv 'iff
                           :lhs term
                           :rhs *t*)
                     (cdr *structured-rewrite-log*)))
@@ -17861,16 +17864,31 @@ its attachment is ignored during proofs"))))
           ; collapsed 143 of these records into ':LHS = :RHS' tautologies
           ; ("'4 rewrites to '4") in place of the real IF-collapse step the
           ; replay must mirror. Logging-only; does not affect rewriting.
+          ; BUG-022 (pre-merge audit 2026-07-30): when the test is TRUTHY and
+          ; the or-shape collapse guard below fires (left == unrewritten-test
+          ; under iff geneqv), ACL2 returns *t*, NOT the rewrite of left —
+          ; the record's :rhs must be *t* and the step is IFF-only (left's
+          ; value is truthy, not necessarily 't).  Recompute the same guard.
           (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                       :rune '(:if-simplification nil)
-                      :origin 'rewrite-if/constant-test :equiv 'equal
+                      :origin 'rewrite-if/constant-test
+                      :equiv (if (and (cadr test)
+                                      unrewritten-test
+                                      (geneqv-refinementp 'iff geneqv wrld)
+                                      (equal unrewritten-test left))
+                                 'iff
+                               'equal)
                       :lhs (list 'if test
                                  (structured-sublis-var-plain alist left)
                                  (structured-sublis-var-plain alist right))
                       :rhs (if (cadr test)
-                               (structured-sublis-var-plain alist left)
-                               (structured-sublis-var-plain alist right)))
+                               (if (and unrewritten-test
+                                        (geneqv-refinementp 'iff geneqv wrld)
+                                        (equal unrewritten-test left))
+                                   *t*
+                                 (structured-sublis-var-plain alist left))
+                             (structured-sublis-var-plain alist right)))
                 (cdr *structured-rewrite-log*)))
         #+acl2-loop-only nil
         (if (cadr test)
