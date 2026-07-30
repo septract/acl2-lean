@@ -12112,19 +12112,32 @@
 ; TRACE-LOG[emit/type-prescription]: emit the computed type-prescription (corollary,
 ; basic type-set, IF-leaf type-sets) as proof data alongside its :DEFUN.
                     (tps (getpropc name 'type-prescriptions nil (w state)))
+; An AUTO-computed type prescription (putprop-initial-type-prescriptions)
+; stores :corollary *t* as a placeholder; reconstruct the real corollary
+; via convert-type-prescription-to-term so the replay can consume it
+; (sorting-completion-2: RM's proper-cons-or-nil TP was silently
+; unemitted, stranding the TRUE-LISTP/CDR type-set closure).
                     (state
-                     (if (and tps
-                              (access type-prescription (car tps) :corollary)
-                              (not (equal (access type-prescription (car tps) :corollary) *t*)))
+                     (if tps
                          (let* ((tp (car tps))
-                                (basic-ts (access type-prescription tp :basic-ts))
-                                (leaves (tp-collect-if-leaves body (ens state) (w state))))
-                           (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3)~%"
-                                (list (cons #\0 name)
-                                      (cons #\1 (access type-prescription tp :corollary))
-                                      (cons #\2 basic-ts)
-                                      (cons #\3 leaves))
-                                (proofs-co state) state nil))
+                                (cor0 (access type-prescription tp :corollary))
+                                (cor (if (or (null cor0) (equal cor0 *t*))
+                                         (mv-let (term ttree)
+                                                 (convert-type-prescription-to-term
+                                                  tp (ens state) (w state))
+                                                 (declare (ignore ttree))
+                                                 term)
+                                       cor0)))
+                           (if (and cor (not (equal cor *t*)))
+                               (let* ((basic-ts (access type-prescription tp :basic-ts))
+                                      (leaves (tp-collect-if-leaves body (ens state) (w state))))
+                                 (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3)~%"
+                                      (list (cons #\0 name)
+                                            (cons #\1 cor)
+                                            (cons #\2 basic-ts)
+                                            (cons #\3 leaves))
+                                      (proofs-co state) state nil))
+                             state))
                        state)))
               (emit-structured-defuns (cdr names) state))))))))
 
