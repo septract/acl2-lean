@@ -5688,7 +5688,18 @@
              (mv step-limit *t* knownp-ttree nil)))
            (t
             (let ((lemmas0 (tagged-objects 'lemma ttree0))
-                  (ttree00 (remove-tag-from-tag-tree 'lemma ttree0)))
+                  (ttree00 (remove-tag-from-tag-tree 'lemma ttree0))
+; TRACE-LOG[infra/saved-log-tail]: checkpoint before the SPECULATIVE rewrite of
+; the literal's atom — rewrite-atm may ABANDON the rewrite result (the
+; try-type-set-and-clause "don't remove facts from the goal" heuristic below
+; returns the original atm) and then the speculative inner events would remain
+; as an orphan chain that contradicts END-LITERAL's :RESULT (ORDERED-PERMS
+; Subgoal *1/7'5' literal 1: a RECOGNIZER/TRUE => 'T step survives while the
+; literal is kept unchanged).
+                  #-acl2-loop-only
+                  (saved-log-tail
+                   (when (consp *structured-rewrite-log*)
+                     (cons t (cdr *structured-rewrite-log*)))))
               (sl-let (ans1 ans2)
                       (rewrite-entry
                        (rewrite atm
@@ -5877,12 +5888,26 @@
 
                                       (prepend-step-limit
                                        3
-                                       (try-type-set-and-clause
-                                        atm
-                                        ans1 ttree ttree0 current-clause wrld
-                                        (access rewrite-constant rcnst
-                                                :current-enabled-structure)
-                                        knownp knownp-ttree)))))
+                                       (mv-let
+                                        (tval tttree tfttree)
+                                        (try-type-set-and-clause
+                                         atm
+                                         ans1 ttree ttree0 current-clause wrld
+                                         (access rewrite-constant rcnst
+                                                 :current-enabled-structure)
+                                         knownp knownp-ttree)
+                                        (progn$
+; TRACE-LOG[infra/saved-log-tail]: roll back speculative inner events — the
+; type-reasoning-only reduction of the atom was ABANDONED (the heuristic kept
+; the original atm, so the logged derivation is not part of the proof)
+                                         #-acl2-loop-only
+                                         (when (and (consp *structured-rewrite-log*)
+                                                    saved-log-tail
+                                                    (equal tval atm))
+                                           (setf (cdr *structured-rewrite-log*)
+                                                 (cdr saved-log-tail)))
+                                         #+acl2-loop-only nil
+                                         (mv tval tttree tfttree)))))))
                               (t
                                (mv step-limit ans1 ttree nil))))))))))
 
