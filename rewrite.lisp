@@ -115,29 +115,6 @@
 #-acl2-loop-only
 (defvar *structured-window-gstacks* nil)
 
-; TRACE-LOG[emit/if-window/begin]: BEGIN a window-local path scope around a
-; rewrite-if branch descent, carrying the INSTANTIATED branch term the
-; descent will rewrite (sublis-var applied by the caller — the same plain
-; instantiation as the constant-test emitter; audit 2026-07-26 F3).
-#-acl2-loop-only
-(defun structured-window-begin (kind term boundary-gstack)
-  (when (consp *structured-rewrite-log*)
-    (push boundary-gstack *structured-window-gstacks*)
-    (push (list :begin-inner-rewrite
-                :origin 'if-window/begin :equiv 'equal
-                :kind kind :term term)
-          (cdr *structured-rewrite-log*))))
-
-; TRACE-LOG[emit/if-window/end]: END the window-local path scope.
-#-acl2-loop-only
-(defun structured-window-end (kind)
-  (when (consp *structured-rewrite-log*)
-    (pop *structured-window-gstacks*)
-    (push (list :end-inner-rewrite
-                :origin 'if-window/end :equiv 'equal
-                :kind kind)
-          (cdr *structured-rewrite-log*))))
-
 ; TRACE-LOG[infra/rewrite-path]: the congruence PATH of the current redex,
 ; read from *deep-gstack* (the live rewrite-frame stack; maintained because
 ; set-raw-proof-format :structured forces gstackp on). Returns one (BKPTR . FN)
@@ -179,6 +156,34 @@
                 (push (cons bk fn) path))))
           (setq tail (cdr tail)))
     path))
+
+; TRACE-LOG[emit/if-window/begin]: BEGIN a window-local path scope around a
+; rewrite-if branch descent, carrying the INSTANTIATED branch term the
+; descent will rewrite (sublis-var applied by the caller — the same plain
+; instantiation as the constant-test emitter; audit 2026-07-26 F3).
+#-acl2-loop-only
+(defun structured-window-begin (kind term boundary-gstack)
+  (when (consp *structured-rewrite-log*)
+    (let ((entry-path (structured-rewrite-path)))
+      ; the window's POSITION in the enclosing window's coordinates —
+      ; computed BEFORE pushing the new boundary (pure logging: the frames
+      ; the walker sees at entry). The replay lifts an INLINE window's
+      ; sub-chain at this path (+ the branch index its KIND names).
+      (push boundary-gstack *structured-window-gstacks*)
+      (push (list :begin-inner-rewrite
+                  :origin 'if-window/begin :equiv 'equal
+                  :kind kind :term term :path entry-path)
+            (cdr *structured-rewrite-log*)))))
+
+; TRACE-LOG[emit/if-window/end]: END the window-local path scope.
+#-acl2-loop-only
+(defun structured-window-end (kind)
+  (when (consp *structured-rewrite-log*)
+    (pop *structured-window-gstacks*)
+    (push (list :end-inner-rewrite
+                :origin 'if-window/end :equiv 'equal
+                :kind kind)
+          (cdr *structured-rewrite-log*))))
 
 ; We introduce ev-fncall+ early in this file to support its use in the
 ; definition of scons-term.
@@ -7544,8 +7549,9 @@ its attachment is ignored during proofs"))))
                           (push (list :begin-inner-rewrite
                                       :origin 'rewrite-entry/begin-inner :equiv 'equal
                                       :kind ',inner-rewrite-kind
-                                      :term (sublis-var ,inner-alist-form
-                                                        ,inner-term-form))
+                                      :term (structured-sublis-var-plain
+                                             ,inner-alist-form
+                                             ,inner-term-form))
                                 (cdr *structured-rewrite-log*)))
                         ,call)
               call)))
@@ -17759,7 +17765,7 @@ its attachment is ignored during proofs"))))
       (progn$
        ; TRACE-LOG[emit/if-window/begin]: if-left window (must-be-true arm)
        #-acl2-loop-only
-       (structured-window-begin 'if-left (sublis-var alist left) gstack)
+       (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
        #+acl2-loop-only nil
        (sl-let (swx swt)
                (rewrite-entry (rewrite left alist 2)
@@ -17775,7 +17781,7 @@ its attachment is ignored during proofs"))))
     (progn$
      ; TRACE-LOG[emit/if-window/begin]: if-right window (must-be-false arm)
      #-acl2-loop-only
-     (structured-window-begin 'if-right (sublis-var alist right) gstack)
+     (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
      #+acl2-loop-only nil
      (sl-let (swx swt)
              (rewrite-entry (rewrite right alist 3)
@@ -17813,7 +17819,7 @@ its attachment is ignored during proofs"))))
             (progn$
              ; TRACE-LOG[emit/if-window/begin]: if-left window (general arm)
              #-acl2-loop-only
-             (structured-window-begin 'if-left (sublis-var alist left) gstack)
+             (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
              #+acl2-loop-only nil
              (sl-let (rw-left ttree1)
                      (rewrite-entry (rewrite left alist 2)
@@ -17831,7 +17837,7 @@ its attachment is ignored during proofs"))))
                   (progn$
                    ; TRACE-LOG[emit/if-window/begin]: if-right window (general arm)
                    #-acl2-loop-only
-                   (structured-window-begin 'if-right (sublis-var alist right) gstack)
+                   (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
                    #+acl2-loop-only nil
                    (sl-let (rw-right ttree2)
                            (rewrite-entry (rewrite right alist 3)
@@ -17991,8 +17997,30 @@ its attachment is ignored during proofs"))))
 ; We will use this observation later in the body of this function as well.
 
                 (mv step-limit *t* ttree)
-              (rewrite-entry (rewrite left alist 2)))
-          (rewrite-entry (rewrite right alist 3)))))
+              (progn$
+               ; TRACE-LOG[emit/if-window/begin]: if-left window (constant-test collapse)
+               #-acl2-loop-only
+               (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
+               #+acl2-loop-only nil
+               (sl-let (swx swt)
+                       (rewrite-entry (rewrite left alist 2))
+                       (progn$
+                        ; TRACE-LOG[emit/if-window/end]: if-left window end (constant-test collapse)
+                        #-acl2-loop-only (structured-window-end 'if-left)
+                        #+acl2-loop-only nil
+                        (mv step-limit swx swt)))))
+          (progn$
+           ; TRACE-LOG[emit/if-window/begin]: if-right window (constant-test collapse)
+           #-acl2-loop-only
+           (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
+           #+acl2-loop-only nil
+           (sl-let (swx swt)
+                   (rewrite-entry (rewrite right alist 3))
+                   (progn$
+                    ; TRACE-LOG[emit/if-window/end]: if-right window end (constant-test collapse)
+                    #-acl2-loop-only (structured-window-end 'if-right)
+                    #+acl2-loop-only nil
+                    (mv step-limit swx swt)))))))
       ((eq (access rewrite-constant rcnst :heavy-linearp) :heavy)
        (sl-let (must-be-true
                 must-be-false
@@ -18404,8 +18432,8 @@ its attachment is ignored during proofs"))))
                     #-acl2-loop-only
                     (structured-window-begin
                      'equal-cars
-                     (list (sublis-var alist '(car lhs))
-                           (sublis-var alist '(car rhs)))
+                     (list (structured-sublis-var-plain alist '(car lhs))
+                           (structured-sublis-var-plain alist '(car rhs)))
                      gstack)
                     #+acl2-loop-only nil
                     (sl-let (swx swt)
@@ -18465,8 +18493,8 @@ its attachment is ignored during proofs"))))
                        #-acl2-loop-only
                        (structured-window-begin
                         'equal-cdrs
-                        (list (sublis-var alist '(cdr lhs))
-                              (sublis-var alist '(cdr rhs)))
+                        (list (structured-sublis-var-plain alist '(cdr lhs))
+                              (structured-sublis-var-plain alist '(cdr rhs)))
                         gstack)
                        #+acl2-loop-only nil
                        (sl-let (swx swt)
@@ -18536,8 +18564,8 @@ its attachment is ignored during proofs"))))
                                 #-acl2-loop-only
                                 (structured-window-begin
                                  'equal-cdrs
-                                 (list (sublis-var alist '(cdr lhs))
-                                       (sublis-var alist '(cdr rhs)))
+                                 (list (structured-sublis-var-plain alist '(cdr lhs))
+                                       (structured-sublis-var-plain alist '(cdr rhs)))
                                  gstack)
                                 #+acl2-loop-only nil
                                 (sl-let (swx swt)
@@ -20420,6 +20448,10 @@ its attachment is ignored during proofs"))))
                              #-acl2-loop-only
                              (when (consp *structured-rewrite-log*)
                                (incf *structured-rewrite-depth*)
+                               ; path-emission Phase 1: the HYP block is a
+                               ; WINDOW — hyp-relief chains inside carry
+                               ; block-local :PATHs ((HYP . fn) …)
+                               (push gstack *structured-window-gstacks*)
                                (push (list :begin-inner-rewrite
                                            :origin 'with-lemma/begin-hyps
                                            :equiv 'equal
@@ -20459,6 +20491,7 @@ its attachment is ignored during proofs"))))
                                 #-acl2-loop-only
                                 (when (consp *structured-rewrite-log*)
                                   (decf *structured-rewrite-depth*)
+                                  (pop *structured-window-gstacks*)
                                   (push (list :end-inner-rewrite
                                               :origin 'with-lemma/end-hyps
                                               :equiv 'equal
@@ -20530,6 +20563,12 @@ its attachment is ignored during proofs"))))
                                   (when (and (consp *structured-rewrite-log*)
                                              saved-hyp-log-tail)
                                     (decf *structured-rewrite-depth*)
+                                    ; path-emission Phase 1: the rollback
+                                    ; discards the BEGIN-HYPS event, so its
+                                    ; window BOUNDARY must unwind too — a
+                                    ; leaked boundary truncates every later
+                                    ; :PATH (the failed-relief leak)
+                                    (pop *structured-window-gstacks*)
                                     (setf (cdr *structured-rewrite-log*)
                                           (cdr saved-hyp-log-tail)))
                                   #+acl2-loop-only nil
