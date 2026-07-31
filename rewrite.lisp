@@ -106,6 +106,38 @@
    (REWRITE-STEP events are logged). >0 = inside definition body or
    rule RHS expansion (events are suppressed, folded into outer step).")
 
+; TRACE-LOG[infra/path-window]: WINDOW boundaries for window-local :PATH
+; emission (path-emission sub-arc, Phase-0 prototype). Each entry is the
+; gstack value at a window BEGIN; structured-rewrite-path stops collecting
+; frames at the innermost boundary, so steps inside a window carry paths
+; relative to the window's own :TERM (whose leading frame is the window's
+; entry frame — the parser validates-and-drops it by the window kind).
+#-acl2-loop-only
+(defvar *structured-window-gstacks* nil)
+
+; TRACE-LOG[emit/if-window/begin]: BEGIN a window-local path scope around a
+; rewrite-if branch descent, carrying the INSTANTIATED branch term the
+; descent will rewrite (sublis-var applied by the caller — the same plain
+; instantiation as the constant-test emitter; audit 2026-07-26 F3).
+#-acl2-loop-only
+(defun structured-window-begin (kind term boundary-gstack)
+  (when (consp *structured-rewrite-log*)
+    (push boundary-gstack *structured-window-gstacks*)
+    (push (list :begin-inner-rewrite
+                :origin 'if-window/begin :equiv 'equal
+                :kind kind :term term)
+          (cdr *structured-rewrite-log*))))
+
+; TRACE-LOG[emit/if-window/end]: END the window-local path scope.
+#-acl2-loop-only
+(defun structured-window-end (kind)
+  (when (consp *structured-rewrite-log*)
+    (pop *structured-window-gstacks*)
+    (push (list :end-inner-rewrite
+                :origin 'if-window/end :equiv 'equal
+                :kind kind)
+          (cdr *structured-rewrite-log*))))
+
 ; TRACE-LOG[infra/rewrite-path]: the congruence PATH of the current redex,
 ; read from *deep-gstack* (the live rewrite-frame stack; maintained because
 ; set-raw-proof-format :structured forces gstackp on). Returns one (BKPTR . FN)
@@ -122,8 +154,9 @@
 ; before that defrec.
 #-acl2-loop-only
 (defun structured-rewrite-path ()
-  (let ((path nil) (tail *deep-gstack*))
-    (loop while tail do
+  (let ((path nil) (tail *deep-gstack*)
+        (boundary (car *structured-window-gstacks*)))
+    (loop while (and tail (not (eq tail boundary))) do
           (let ((fr (car tail)))
             (when (eq (car fr) 'rewrite)    ; sys-fn
               (let* ((bkptr (cadr fr))
@@ -17710,15 +17743,37 @@ its attachment is ignored during proofs"))))
              (geneqv-refinementp 'iff geneqv wrld)
              (equal unrewritten-test left))
         (mv step-limit *t* (cons-tag-trees ts-ttree ttree))
-      (rewrite-entry (rewrite left alist 2)
-                     :type-alist true-type-alist
-                     :simplify-clause-pot-lst true-pot-lst
-                     :ttree (cons-tag-trees ts-ttree ttree))))
+      (progn$
+       ; TRACE-LOG[emit/if-window/begin]: if-left window (must-be-true arm)
+       #-acl2-loop-only
+       (structured-window-begin 'if-left (sublis-var alist left) gstack)
+       #+acl2-loop-only nil
+       (sl-let (swx swt)
+               (rewrite-entry (rewrite left alist 2)
+                              :type-alist true-type-alist
+                              :simplify-clause-pot-lst true-pot-lst
+                              :ttree (cons-tag-trees ts-ttree ttree))
+               (progn$
+                ; TRACE-LOG[emit/if-window/end]: if-left window end (must-be-true arm)
+                #-acl2-loop-only (structured-window-end 'if-left)
+                #+acl2-loop-only nil
+                (mv step-limit swx swt))))))
    (must-be-false
-    (rewrite-entry (rewrite right alist 3)
-                   :type-alist false-type-alist
-                   :simplify-clause-pot-lst false-pot-lst
-                   :ttree (cons-tag-trees ts-ttree ttree)))
+    (progn$
+     ; TRACE-LOG[emit/if-window/begin]: if-right window (must-be-false arm)
+     #-acl2-loop-only
+     (structured-window-begin 'if-right (sublis-var alist right) gstack)
+     #+acl2-loop-only nil
+     (sl-let (swx swt)
+             (rewrite-entry (rewrite right alist 3)
+                            :type-alist false-type-alist
+                            :simplify-clause-pot-lst false-pot-lst
+                            :ttree (cons-tag-trees ts-ttree ttree))
+             (progn$
+              ; TRACE-LOG[emit/if-window/end]: if-right window end (must-be-false arm)
+              #-acl2-loop-only (structured-window-end 'if-right)
+              #+acl2-loop-only nil
+              (mv step-limit swx swt)))))
    (t (let ((ttree (normalize-rw-any-cache ttree)))
 
 ; Suppress inner steps from both IF branch rewrites.  Increment depth
@@ -17742,20 +17797,40 @@ its attachment is ignored during proofs"))))
                    (geneqv-refinementp 'iff geneqv wrld)
                    (equal unrewritten-test left))
               (mv step-limit *t* ttree)
-            (sl-let (rw-left ttree1)
-                    (rewrite-entry (rewrite left alist 2)
-                                   :type-alist true-type-alist
-                                   :simplify-clause-pot-lst true-pot-lst
-                                   :ttree (rw-cache-enter-context ttree))
-                    (mv step-limit
-                        rw-left
-                        (rw-cache-exit-context ttree ttree1))))
+            (progn$
+             ; TRACE-LOG[emit/if-window/begin]: if-left window (general arm)
+             #-acl2-loop-only
+             (structured-window-begin 'if-left (sublis-var alist left) gstack)
+             #+acl2-loop-only nil
+             (sl-let (rw-left ttree1)
+                     (rewrite-entry (rewrite left alist 2)
+                                    :type-alist true-type-alist
+                                    :simplify-clause-pot-lst true-pot-lst
+                                    :ttree (rw-cache-enter-context ttree))
+                     (progn$
+                      ; TRACE-LOG[emit/if-window/end]: if-left window end (general arm)
+                      #-acl2-loop-only (structured-window-end 'if-left)
+                      #+acl2-loop-only nil
+                      (mv step-limit
+                          rw-left
+                          (rw-cache-exit-context ttree ttree1))))))
           (sl-let (rewritten-right ttree1)
-                  (rewrite-entry (rewrite right alist 3)
-                                 :type-alist false-type-alist
-                                 :simplify-clause-pot-lst false-pot-lst
-                                 :ttree (rw-cache-enter-context
-                                         ttree))
+                  (progn$
+                   ; TRACE-LOG[emit/if-window/begin]: if-right window (general arm)
+                   #-acl2-loop-only
+                   (structured-window-begin 'if-right (sublis-var alist right) gstack)
+                   #+acl2-loop-only nil
+                   (sl-let (rw-right ttree2)
+                           (rewrite-entry (rewrite right alist 3)
+                                          :type-alist false-type-alist
+                                          :simplify-clause-pot-lst false-pot-lst
+                                          :ttree (rw-cache-enter-context
+                                                  ttree))
+                           (progn$
+                            ; TRACE-LOG[emit/if-window/end]: if-right window end (general arm)
+                            #-acl2-loop-only (structured-window-end 'if-right)
+                            #+acl2-loop-only nil
+                            (mv step-limit rw-right ttree2))))
                   (mv-let
                     (rewritten-term ttree)
                     (rewrite-if1 test
