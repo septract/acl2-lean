@@ -5224,6 +5224,10 @@
       (prog2$
        #-acl2-loop-only
        (progn (setq *structured-rewrite-log* (list :active))
+              ; TRACE-LOG[infra/path-window]: reset the window-boundary stack
+              ; at stream activation (a mid-window abort in a PRIOR session
+              ; segment must not truncate later paths)
+              (setq *structured-window-gstacks* nil)
               ; TRACE-LOG[infra/cited-symbols]: activate the printed-symbol
               ; collector for the ground-zero snapshot emission (D3/D5; the
               ; defvar and prin1$ hook live in axioms.lisp).

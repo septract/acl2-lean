@@ -7528,14 +7528,24 @@ its attachment is ignored during proofs"))))
            (inner-rewrite-kind
             (and inner-rewrite-p
                  (cadr (cadddr (car args)))))
+           ; the descent's term/alist FORMS (pure variable/accessor forms at
+           ; every quoted-kind site — safe to re-evaluate for the emission)
+           (inner-term-form (and inner-rewrite-p (cadr (car args))))
+           (inner-alist-form (and inner-rewrite-p (caddr (car args))))
            (depth-call
             (if inner-rewrite-p
                 ; TRACE-LOG[emit/rewrite-entry/begin-inner]: begin-inner-rewrite in rewrite-entry macro
+                ; (path-emission Phase 1: the window carries its INSTANTIATED
+                ; input term, and pushes the window BOUNDARY so :PATHs inside
+                ; are window-local — see structured-rewrite-path)
                 `(progn (when (consp *structured-rewrite-log*)
                           (incf *structured-rewrite-depth*)
+                          (push gstack *structured-window-gstacks*)
                           (push (list :begin-inner-rewrite
                                       :origin 'rewrite-entry/begin-inner :equiv 'equal
-                                      :kind ',inner-rewrite-kind)
+                                      :kind ',inner-rewrite-kind
+                                      :term (sublis-var ,inner-alist-form
+                                                        ,inner-term-form))
                                 (cdr *structured-rewrite-log*)))
                         ,call)
               call)))
@@ -7565,6 +7575,7 @@ its attachment is ignored during proofs"))))
                    ,@(when inner-rewrite-p
                        `((when (consp *structured-rewrite-log*)
                            (decf *structured-rewrite-depth*)
+                           (pop *structured-window-gstacks*)
                            (push (list :end-inner-rewrite
                                        :origin 'rewrite-entry/end-inner-cltl2 :equiv 'equal
                                        :kind ',inner-rewrite-kind)
@@ -7578,6 +7589,7 @@ its attachment is ignored during proofs"))))
                         ,@(when inner-rewrite-p
                             `((when (consp *structured-rewrite-log*)
                                 (decf *structured-rewrite-depth*)
+                                (pop *structured-window-gstacks*)
                                 (push (list :end-inner-rewrite
                                             :origin 'rewrite-entry/end-inner-noncltl2 :equiv 'equal
                                             :kind ',inner-rewrite-kind)
@@ -7589,6 +7601,7 @@ its attachment is ignored during proofs"))))
                           ; TRACE-LOG[emit/rewrite-entry/end-inner-default]: end-inner-rewrite in rewrite-entry macro (default path)
                           (when (consp *structured-rewrite-log*)
                             (decf *structured-rewrite-depth*)
+                            (pop *structured-window-gstacks*)
                             (push (list :end-inner-rewrite
                                         :origin 'rewrite-entry/end-inner-default :equiv 'equal
                                         :kind ',inner-rewrite-kind)
@@ -18384,12 +18397,29 @@ its attachment is ignored during proofs"))))
                   (equal-cars new-ttree)
                   (sl-let
                    (cars ttree0)
-                   (rewrite-entry (rewrite-args '((car lhs) (car rhs))
-                                                alist 1 nil nil nil nil 'equal)
-                                  :obj '?
-                                  :geneqv nil
-                                  :pequiv-info nil ; ignored
-                                  :ttree ttree+)
+                   (progn$
+                    ; TRACE-LOG[emit/if-window/begin]: equal-cars window — the
+                    ; rewrite-equal component descent's SYNTHESIZED redexes,
+                    ; logged verbatim (path-emission Phase 1)
+                    #-acl2-loop-only
+                    (structured-window-begin
+                     'equal-cars
+                     (list (sublis-var alist '(car lhs))
+                           (sublis-var alist '(car rhs)))
+                     gstack)
+                    #+acl2-loop-only nil
+                    (sl-let (swx swt)
+                            (rewrite-entry (rewrite-args '((car lhs) (car rhs))
+                                                         alist 1 nil nil nil nil 'equal)
+                                           :obj '?
+                                           :geneqv nil
+                                           :pequiv-info nil ; ignored
+                                           :ttree ttree+)
+                            (progn$
+                             ; TRACE-LOG[emit/if-window/end]: equal-cars window end
+                             #-acl2-loop-only (structured-window-end 'equal-cars)
+                             #+acl2-loop-only nil
+                             (mv step-limit swx swt))))
                    (rewrite-entry (rewrite-equal
                                    (car cars)
                                    (cadr cars)
@@ -18430,13 +18460,28 @@ its attachment is ignored during proofs"))))
                      (equal-cdrs new-ttree)
                      (sl-let
                       (cdrs ttree0)
-                      (rewrite-entry (rewrite-args '((cdr lhs) (cdr rhs))
-                                                   alist 1 nil nil nil nil
-                                                   'equal)
-                                     :obj '?
-                                     :geneqv nil
-                                     :pequiv-info nil ; ignored
-                                     :ttree new-ttree)
+                      (progn$
+                       ; TRACE-LOG[emit/if-window/begin]: equal-cdrs window (positive side)
+                       #-acl2-loop-only
+                       (structured-window-begin
+                        'equal-cdrs
+                        (list (sublis-var alist '(cdr lhs))
+                              (sublis-var alist '(cdr rhs)))
+                        gstack)
+                       #+acl2-loop-only nil
+                       (sl-let (swx swt)
+                               (rewrite-entry (rewrite-args '((cdr lhs) (cdr rhs))
+                                                            alist 1 nil nil nil nil
+                                                            'equal)
+                                              :obj '?
+                                              :geneqv nil
+                                              :pequiv-info nil ; ignored
+                                              :ttree new-ttree)
+                               (progn$
+                                ; TRACE-LOG[emit/if-window/end]: equal-cdrs window end (positive side)
+                                #-acl2-loop-only (structured-window-end 'equal-cdrs)
+                                #+acl2-loop-only nil
+                                (mv step-limit swx swt))))
                       (rewrite-entry (rewrite-equal
                                       (car cdrs)
                                       (cadr cdrs)
@@ -18486,13 +18531,28 @@ its attachment is ignored during proofs"))))
                       (sl-let (equal-cdrs new-ttree)
                               (sl-let
                                (cdrs ttree0)
-                               (rewrite-entry
-                                (rewrite-args '((cdr lhs) (cdr rhs))
-                                              alist 1 nil nil nil nil 'equal)
-                                :obj '?
-                                :geneqv nil
-                                :pequiv-info nil ; ignored
-                                :ttree ttree)
+                               (progn$
+                                ; TRACE-LOG[emit/if-window/begin]: equal-cdrs window (negative side)
+                                #-acl2-loop-only
+                                (structured-window-begin
+                                 'equal-cdrs
+                                 (list (sublis-var alist '(cdr lhs))
+                                       (sublis-var alist '(cdr rhs)))
+                                 gstack)
+                                #+acl2-loop-only nil
+                                (sl-let (swx swt)
+                                        (rewrite-entry
+                                         (rewrite-args '((cdr lhs) (cdr rhs))
+                                                       alist 1 nil nil nil nil 'equal)
+                                         :obj '?
+                                         :geneqv nil
+                                         :pequiv-info nil ; ignored
+                                         :ttree ttree)
+                                        (progn$
+                                         ; TRACE-LOG[emit/if-window/end]: equal-cdrs window end (negative side)
+                                         #-acl2-loop-only (structured-window-end 'equal-cdrs)
+                                         #+acl2-loop-only nil
+                                         (mv step-limit swx swt))))
                                (rewrite-entry
                                 (rewrite-equal
                                  (car cdrs)
