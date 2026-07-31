@@ -17898,10 +17898,15 @@ its attachment is ignored during proofs"))))
                                    :test test
                                    :result rewritten-term)
                              (cdr *structured-rewrite-log*))
-                       (when (not (equal rewritten-term
-                                         (list 'if test
-                                               rewritten-left
-                                               rewritten-right)))
+                       (let ((or-collapse-p
+                              (and unrewritten-test
+                                   (geneqv-refinementp 'iff geneqv wrld)
+                                   (equal unrewritten-test left))))
+                        (when (or or-collapse-p
+                                  (not (equal rewritten-term
+                                              (list 'if test
+                                                    rewritten-left
+                                                    rewritten-right))))
                      ; TRACE-LOG[emit/if-finish/combined]: rewrite-step (:if-simplification) for
                      ; the simplified IF in rewrite-if-finish (paired with the end-if above).
                      ; The :LHS is the ACTUAL input to rewrite-if1 — the IF over
@@ -17913,14 +17918,24 @@ its attachment is ignored during proofs"))))
                      ; rule formals into 547 corpus records (fold-back audit
                      ; 2026-07-31 V2/C-F1, the F3 fix's twin; BUG-025).  The
                      ; guard compares against the same raw shape: emit exactly
-                     ; when rewrite-if1 changed the term.
-                     ; The :equiv is IFF exactly when the OR-SHAPE collapse fired
-                     ; (rewritten-left := *t* above, geneqv-iff-guarded: (if a a b)
-                     ; => (if a 't b) is truthiness-only) — the same condition
-                     ; recomputed; every other combined step is value-preserving.
-                     ; (The must-be-true arm's collapse sibling returns 'T with no
-                     ; step of its own — a consumer meeting it fails closed on the
-                     ; chain mismatch; label it when a record demands it.)
+                     ; when rewrite-if1 changed the term — EXCEPT the OR-SHAPE
+                     ; collapse (below), which must always emit.
+                     ; The :equiv is IFF exactly when the OR-SHAPE collapse
+                     ; fired (rewritten-left := *t* above, geneqv-iff-guarded:
+                     ; (if a a b) => (if a 't b) is truthiness-only). For THAT
+                     ; class the left branch was never rewritten (the collapse
+                     ; replaced it), so the :LHS is the iff-theorem instance
+                     ; (if test test rewritten-right) — the test's copy in the
+                     ; left position, exactly the (if x x y) shape ACL2's
+                     ; comment cites — and rewritten-term == (if test 't
+                     ; rewritten-right) makes the raw-shape guard blind to it,
+                     ; hence the or-collapse-p disjunct (fold-back fix round
+                     ; 2026-07-31: the old folded guard emitted it by
+                     ; accident; the p3-conj books pin it).
+                     ; (The must-be-true arm's collapse sibling returns 'T with
+                     ; no step of its own — a consumer meeting it fails closed
+                     ; on the chain mismatch; label it when a record demands
+                     ; it.)
                      ; :SWAPPED-P marks the rewrite-if test-negation swap
                      ; (fold-back audit 2026-07-31 V3): test/left/right here are
                      ; the POST-swap orientation; T means the original term's
@@ -17930,19 +17945,17 @@ its attachment is ignored during proofs"))))
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
                                      :origin 'if-finish/combined
-                                     :equiv (if (and unrewritten-test
-                                                     (geneqv-refinementp
-                                                      'iff geneqv wrld)
-                                                     (equal unrewritten-test
-                                                            left))
-                                                'iff
-                                              'equal)
+                                     :equiv (if or-collapse-p 'iff 'equal)
                                      :swapped-p swapped-p
-                                     :lhs (list 'if test
-                                                rewritten-left
-                                                rewritten-right)
+                                     :lhs (if or-collapse-p
+                                              (list 'if test
+                                                    test
+                                                    rewritten-right)
+                                            (list 'if test
+                                                  rewritten-left
+                                                  rewritten-right))
                                      :rhs rewritten-term)
-                               (cdr *structured-rewrite-log*))))
+                               (cdr *structured-rewrite-log*)))))
                      #+acl2-loop-only nil
                      (rewrite-entry
                       (rewrite-with-lemmas
