@@ -750,6 +750,23 @@
          (A (disjoin-clause-segment-to-clause-set (dumb-negate-lit-lst hyps)
                                                   clauses))
          (non-tautp-applications (length A)))
+    (progn$
+     ; TRACE-LOG[emit/use-hint/payload]: the :USE hint's payload — the instantiated
+     ; lemma HYPS added to each goal clause, the CONSTRAINT-CL whose
+     ; preprocessing (the rewrite chain recorded on this step) discharges the
+     ; instantiation obligations, and the surviving APPLICATION clauses A —
+     ; the chain's true ROOT term is constraint-cl, which the replay cannot
+     ; reconstruct from the goal clause (sorts-equivalent Class B: the
+     ; preprocess :PATH walks constraint-cl, not the input clause).
+     #-acl2-loop-only
+     (when (consp *structured-rewrite-log*)
+       (push (list :use-hint
+                   :origin 'use-hint/payload :equiv 'equal
+                   :hyps hyps
+                   :constraint-cl constraint-cl
+                   :application-clauses A)
+             (cdr *structured-rewrite-log*)))
+     #+acl2-loop-only nil
 
 ; In this treatment, the final set of goal clauses will the union of
 ; sets A and C.  A stands for the "application clauses" (obtained by
@@ -812,7 +829,7 @@
                                  (add-to-tag-tree! 'preprocess-ttree
                                                    ttree
                                                    nil))
-               new-pspv))))))))
+               new-pspv)))))))))
 
 (defun apply-cases-hint-clause (temp cl pspv wrld)
 
