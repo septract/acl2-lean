@@ -17911,7 +17911,7 @@ its attachment is ignored during proofs"))))
                      ; (mcons-term* 'if test left right) used the UNREWRITTEN
                      ; formal-level branches: not a subterm of anything, leaking
                      ; rule formals into 547 corpus records (fold-back audit
-                     ; 2026-07-31 V2/C-F1, the F3 fix's twin; BUG-023).  The
+                     ; 2026-07-31 V2/C-F1, the F3 fix's twin; BUG-025).  The
                      ; guard compares against the same raw shape: emit exactly
                      ; when rewrite-if1 changed the term.
                      ; The :equiv is IFF exactly when the OR-SHAPE collapse fired
