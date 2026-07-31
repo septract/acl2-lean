@@ -5226,7 +5226,9 @@
        (progn (setq *structured-rewrite-log* (list :active))
               ; TRACE-LOG[infra/path-window]: reset the window-boundary stack
               ; at stream activation (a mid-window abort in a PRIOR session
-              ; segment must not truncate later paths)
+              ; segment must not leave a dead boundary that would make later
+              ; paths overrun their windows — over-long, not truncated;
+              ; fold-back audit 2026-07-31 V6)
               (setq *structured-window-gstacks* nil)
               ; TRACE-LOG[infra/cited-symbols]: activate the printed-symbol
               ; collector for the ground-zero snapshot emission (D3/D5; the

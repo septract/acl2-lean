@@ -162,17 +162,26 @@
 ; descent will rewrite (sublis-var applied by the caller — the same plain
 ; instantiation as the constant-test emitter; audit 2026-07-26 F3).
 #-acl2-loop-only
-(defun structured-window-begin (kind term boundary-gstack)
+(defun structured-window-begin (kind term boundary-gstack
+                                     &optional swapped-p)
   (when (consp *structured-rewrite-log*)
     (let ((entry-path (structured-rewrite-path)))
       ; the window's POSITION in the enclosing window's coordinates —
       ; computed BEFORE pushing the new boundary (pure logging: the frames
       ; the walker sees at entry). The replay lifts an INLINE window's
       ; sub-chain at this path (+ the branch index its KIND names).
+      ; :SWAPPED-P (fold-back audit 2026-07-31 V3): T on an if-left/if-right
+      ; window whose enclosing rewrite-if normalized an (if x nil t) test by
+      ; negating it and EXCHANGING the branches — the KIND names the
+      ; post-swap branch, so under the swap if-left is source argument 3 and
+      ; if-right is source argument 2.  NIL everywhere else (including the
+      ; equal-cars/cdrs and classic rewrite-entry windows, which have no
+      ; swap to record).
       (push boundary-gstack *structured-window-gstacks*)
       (push (list :begin-inner-rewrite
                   :origin 'if-window/begin :equiv 'equal
-                  :kind kind :term term :path entry-path)
+                  :kind kind :term term :path entry-path
+                  :swapped-p swapped-p)
             (cdr *structured-rewrite-log*)))))
 
 ; TRACE-LOG[emit/if-window/end]: END the window-local path scope.
@@ -869,16 +878,28 @@
 ; (pin book p2-beta-preprocess: the beta's rhs read '9 while the
 ; (BINARY-* '3 '3) => '9 fold followed as its own step — an incoherent
 ; chain). The per-step result must be the substitution ALONE; the folds are
-; the next steps.
-#-acl2-loop-only
+; the next steps.  Loop-visible (program mode, like
+; structured-induction-cases) so loop-mode emission sites — the induction
+; :MEASURE instantiation in induct.lisp — can use it too (fold-back audit
+; 2026-07-31 A-F1).
+(mutual-recursion
+
 (defun structured-sublis-var-plain (alist term)
+  (declare (xargs :guard t :mode :program))
   (cond ((variablep term)
          (let ((pair (assoc-eq term alist)))
            (if pair (cdr pair) term)))
         ((fquotep term) term)
         (t (cons (ffn-symb term)
-                 (mapcar (lambda (a) (structured-sublis-var-plain alist a))
-                         (fargs term))))))
+                 (structured-sublis-var-plain-lst alist (fargs term))))))
+
+(defun structured-sublis-var-plain-lst (alist terms)
+  (declare (xargs :guard t :mode :program))
+  (if (atom terms)
+      nil
+    (cons (structured-sublis-var-plain alist (car terms))
+          (structured-sublis-var-plain-lst alist (cdr terms)))))
+)
 
 ; TRACE-LOG[infra/geneqv-equiv]: summarize a geneqv for :EQUIV emission (S2b
 ; design note 2026-07-25, ratified option B + audit amendment 2026-07-26):
@@ -17749,8 +17770,9 @@ its attachment is ignored during proofs"))))
                        (must-be-false :if-test-false)
                        (t :if-test-unknown))
                  :origin 'if-finish/if-test :equiv 'equal
+                 :swapped-p swapped-p
                  :test test
-                 :unrewritten-test (sublis-var alist unrewritten-test)
+                 :unrewritten-test (structured-sublis-var-plain alist unrewritten-test)
                  :justification (and (or must-be-true must-be-false)
                                      (list :runes (all-runes-in-ttree ts-ttree nil)
                                            :parents (tagged-objects 'pt ts-ttree))))
@@ -17765,7 +17787,8 @@ its attachment is ignored during proofs"))))
       (progn$
        ; TRACE-LOG[emit/if-window/begin]: if-left window (must-be-true arm)
        #-acl2-loop-only
-       (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
+       (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack
+                                swapped-p)
        #+acl2-loop-only nil
        (sl-let (swx swt)
                (rewrite-entry (rewrite left alist 2)
@@ -17781,7 +17804,8 @@ its attachment is ignored during proofs"))))
     (progn$
      ; TRACE-LOG[emit/if-window/begin]: if-right window (must-be-false arm)
      #-acl2-loop-only
-     (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
+     (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack
+                                 swapped-p)
      #+acl2-loop-only nil
      (sl-let (swx swt)
              (rewrite-entry (rewrite right alist 3)
@@ -17807,7 +17831,7 @@ its attachment is ignored during proofs"))))
            (push (list :begin-if-rewrite
                        :origin 'if-finish/begin-if :equiv 'equal
                        :test test
-                       :unrewritten-test (sublis-var alist unrewritten-test))
+                       :unrewritten-test (structured-sublis-var-plain alist unrewritten-test))
                  (cdr *structured-rewrite-log*)))
          #+acl2-loop-only nil
          (sl-let
@@ -17819,7 +17843,8 @@ its attachment is ignored during proofs"))))
             (progn$
              ; TRACE-LOG[emit/if-window/begin]: if-left window (general arm)
              #-acl2-loop-only
-             (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
+             (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack
+                                swapped-p)
              #+acl2-loop-only nil
              (sl-let (rw-left ttree1)
                      (rewrite-entry (rewrite left alist 2)
@@ -17837,7 +17862,8 @@ its attachment is ignored during proofs"))))
                   (progn$
                    ; TRACE-LOG[emit/if-window/begin]: if-right window (general arm)
                    #-acl2-loop-only
-                   (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
+                   (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack
+                                 swapped-p)
                    #+acl2-loop-only nil
                    (sl-let (rw-right ttree2)
                            (rewrite-entry (rewrite right alist 3)
@@ -17873,9 +17899,21 @@ its attachment is ignored during proofs"))))
                                    :result rewritten-term)
                              (cdr *structured-rewrite-log*))
                        (when (not (equal rewritten-term
-                                         (mcons-term* 'if test left right)))
+                                         (list 'if test
+                                               rewritten-left
+                                               rewritten-right)))
                      ; TRACE-LOG[emit/if-finish/combined]: rewrite-step (:if-simplification) for
                      ; the simplified IF in rewrite-if-finish (paired with the end-if above).
+                     ; The :LHS is the ACTUAL input to rewrite-if1 — the IF over
+                     ; the already-rewritten branches, built with a raw cons (no
+                     ; mcons-term* fold) — i.e. exactly the running term after
+                     ; the two windows apply.  The earlier
+                     ; (mcons-term* 'if test left right) used the UNREWRITTEN
+                     ; formal-level branches: not a subterm of anything, leaking
+                     ; rule formals into 547 corpus records (fold-back audit
+                     ; 2026-07-31 V2/C-F1, the F3 fix's twin; BUG-023).  The
+                     ; guard compares against the same raw shape: emit exactly
+                     ; when rewrite-if1 changed the term.
                      ; The :equiv is IFF exactly when the OR-SHAPE collapse fired
                      ; (rewritten-left := *t* above, geneqv-iff-guarded: (if a a b)
                      ; => (if a 't b) is truthiness-only) — the same condition
@@ -17883,6 +17921,11 @@ its attachment is ignored during proofs"))))
                      ; (The must-be-true arm's collapse sibling returns 'T with no
                      ; step of its own — a consumer meeting it fails closed on the
                      ; chain mismatch; label it when a record demands it.)
+                     ; :SWAPPED-P marks the rewrite-if test-negation swap
+                     ; (fold-back audit 2026-07-31 V3): test/left/right here are
+                     ; the POST-swap orientation; T means the original term's
+                     ; test was the (if x nil t) negation and the branches are
+                     ; exchanged relative to the source.
                          (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                      :rune '(:if-simplification nil)
@@ -17894,7 +17937,10 @@ its attachment is ignored during proofs"))))
                                                             left))
                                                 'iff
                                               'equal)
-                                     :lhs (mcons-term* 'if test left right)
+                                     :swapped-p swapped-p
+                                     :lhs (list 'if test
+                                                rewritten-left
+                                                rewritten-right)
                                      :rhs rewritten-term)
                                (cdr *structured-rewrite-log*))))
                      #+acl2-loop-only nil
@@ -17946,8 +17992,9 @@ its attachment is ignored during proofs"))))
           ; TRACE-LOG[emit/rewrite-if/constant-if-test]: if-test in rewrite-if [constant test]
           (push (list (if (cadr test) :if-test-true :if-test-false)
                       :origin 'rewrite-if/constant-if-test :equiv 'equal
+                      :swapped-p swapped-p
                       :test test
-                      :unrewritten-test (sublis-var alist unrewritten-test)
+                      :unrewritten-test (structured-sublis-var-plain alist unrewritten-test)
                       :justification :rewritten-to-constant)
                 (cdr *structured-rewrite-log*))
           ; TRACE-LOG[emit/rewrite-if/constant-test]: rewrite-step (:if-simplification) in rewrite-if [constant test]
@@ -17967,6 +18014,7 @@ its attachment is ignored during proofs"))))
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                       :rune '(:if-simplification nil)
                       :origin 'rewrite-if/constant-test
+                      :swapped-p swapped-p
                       :equiv (if (and (cadr test)
                                       unrewritten-test
                                       (geneqv-refinementp 'iff geneqv wrld)
@@ -18000,7 +18048,8 @@ its attachment is ignored during proofs"))))
               (progn$
                ; TRACE-LOG[emit/if-window/begin]: if-left window (constant-test collapse)
                #-acl2-loop-only
-               (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack)
+               (structured-window-begin 'if-left (structured-sublis-var-plain alist left) gstack
+                                swapped-p)
                #+acl2-loop-only nil
                (sl-let (swx swt)
                        (rewrite-entry (rewrite left alist 2))
@@ -18012,7 +18061,8 @@ its attachment is ignored during proofs"))))
           (progn$
            ; TRACE-LOG[emit/if-window/begin]: if-right window (constant-test collapse)
            #-acl2-loop-only
-           (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack)
+           (structured-window-begin 'if-right (structured-sublis-var-plain alist right) gstack
+                                 swapped-p)
            #+acl2-loop-only nil
            (sl-let (swx swt)
                    (rewrite-entry (rewrite right alist 3))
@@ -18798,7 +18848,7 @@ its attachment is ignored during proofs"))))
                             (when (consp *structured-rewrite-log*)
                               (push (list :hyp-relief
                                           :origin 'relieve-hyp/type-alist :equiv 'equal
-                                          :hyp (sublis-var unify-subst hyp))
+                                          :hyp (structured-sublis-var-plain unify-subst hyp))
                                     (cdr *structured-rewrite-log*)))
                             #+acl2-loop-only nil
                             (mv step-limit t nil unify-subst ttree)))
@@ -19616,8 +19666,8 @@ its attachment is ignored during proofs"))))
                             (push (list :hyp-relief
                                         :origin 'relieve-hyp/ground-unit
                                         :equiv 'equal
-                                        :hyp (sublis-var fully-bound-unify-subst
-                                                         hyp))
+                                        :hyp (structured-sublis-var-plain fully-bound-unify-subst
+                                                                    hyp))
                                   (cdr *structured-rewrite-log*)))
                           #+acl2-loop-only nil
                           (mv step-limit relieve-hyps-ans
@@ -19689,7 +19739,7 @@ its attachment is ignored during proofs"))))
                    (push (list :hyp-relief
                                :origin 'relieve-hyp/ground-unit-search
                                :equiv 'equal
-                               :hyp (sublis-var new-unify-subst hyp))
+                               :hyp (structured-sublis-var-plain new-unify-subst hyp))
                          (cdr *structured-rewrite-log*)))
                  #+acl2-loop-only nil
                  (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
@@ -20566,8 +20616,12 @@ its attachment is ignored during proofs"))))
                                     ; path-emission Phase 1: the rollback
                                     ; discards the BEGIN-HYPS event, so its
                                     ; window BOUNDARY must unwind too — a
-                                    ; leaked boundary truncates every later
-                                    ; :PATH (the failed-relief leak)
+                                    ; leaked boundary is DEAD (its cell is on
+                                    ; no later gstack), so the eq stop never
+                                    ; fires and every later :PATH overruns
+                                    ; its window to the gstack bottom (the
+                                    ; failed-relief leak; over-long, not
+                                    ; truncated — fold-back audit V6)
                                     (pop *structured-window-gstacks*)
                                     (setf (cdr *structured-rewrite-log*)
                                           (cdr saved-hyp-log-tail)))

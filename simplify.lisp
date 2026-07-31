@@ -7469,8 +7469,12 @@
       (when (consp *structured-rewrite-log*)
         ; TRACE-LOG[infra/path-window]: reset the window-boundary stack at
         ; each literal boundary — a non-local exit (step-limit throw) inside
-        ; a window would otherwise truncate every later path; windows never
-        ; span literals, so an empty stack is the literal-start invariant
+        ; a window would otherwise leave a DEAD boundary on the stack: no
+        ; later gstack contains that cell, so the eq stop never fires and
+        ; every later path runs past its legitimate window to the gstack
+        ; bottom (OVER-LONG, not truncated — fold-back audit 2026-07-31 V6);
+        ; windows never span literals, so an empty stack is the
+        ; literal-start invariant
         (setq *structured-window-gstacks* nil)
         (push (list :begin-literal
                     :origin 'clause/begin-literal :equiv 'equal

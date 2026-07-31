@@ -7269,7 +7269,10 @@
                                  (list (cons #\0 term)
                                        (cons #\1 (access candidate cand :xinduction-term))
                                        (cons #\2 (length clauses))
-                                       (cons #\3 (sublis-var ialist (access justification just :measure)))
+                                       ; plain instantiation — sublis-var
+                                       ; const-folds ground measure args
+                                       ; (fold-back audit 2026-07-31 A-F1)
+                                       (cons #\3 (structured-sublis-var-plain ialist (access justification just :measure)))
                                        (cons #\4 (access justification just :rel))
                                        (cons #\5 (access justification just :mp))
                                        (cons #\6 (access candidate cand :controllers))
