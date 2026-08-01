@@ -5470,6 +5470,55 @@
             (getpropc s 'runic-mapping-pairs nil wrld) wrld acc))
           (t acc)))))))
 
+; TRACE-LOG[infra/gz-linear-rules]: LINEAR-class ground-zero rule collectors
+; (sorting-absolute 2b, 2026-08-01) — simplify's linear arithmetic cites
+; :LINEAR runes (fake-rune-for-linear/-equalities verdicts) whose rule
+; CONTENT no existing event carries; the DP-obligation replay needs the
+; stored hyps/concl (ACL2-COUNT-CAR-CDR-LINEAR in the msort admission
+; lemmas is the driving case). Same cited-closure walk as
+; gz-fc-rule-entries; emitted as a SEPARATE
+; (:GROUND-ZERO-LINEAR-RULES ((rune hyps concl max-term) ...)) event.
+(defun gz-linear-rule-entries-of-rules (rules acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp rules) acc)
+   (t (gz-linear-rule-entries-of-rules
+       (cdr rules)
+       (let ((r (car rules)))
+         (cons (list (access linear-lemma r :rune)
+                     (access linear-lemma r :hyps)
+                     (access linear-lemma r :concl)
+                     (access linear-lemma r :max-term))
+               acc))))))
+
+(defun gz-linear-rule-entries-of-runes (pairs wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp pairs) acc)
+   (t (gz-linear-rule-entries-of-runes
+       (cdr pairs) wrld
+       (let ((rune (cdr (car pairs))))
+         (cond
+          ((eq (car rune) :linear)
+           (gz-linear-rule-entries-of-rules (find-rules-of-rune rune wrld)
+                                            acc))
+          (t acc)))))))
+
+(defun gz-linear-rule-entries (syms wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp syms) (reverse acc))
+   (t (gz-linear-rule-entries
+       (cdr syms) wrld
+       (let ((s (car syms)))
+         (cond
+          ((and (symbolp s)
+                s
+                (getpropc s 'predefined nil wrld))
+           (gz-linear-rule-entries-of-runes
+            (getpropc s 'runic-mapping-pairs nil wrld) wrld acc))
+          (t acc)))))))
+
 (defun gz-rule-entries (syms wrld acc)
 ; For each cited symbol naming a ground-zero event with :REWRITE runes,
 ; every stored rewrite-rule of those runes as an entry
@@ -5624,13 +5673,23 @@
                 (t (fms "~x0~%"
                         (list (cons #\0 (list :ground-zero-rules rule-entries)))
                         (proofs-co state) state nil)))))
-          (cond
-           ((null fc-entries) state)
-           ; (Part of emit/ground-zero-rules:) the FC-class snapshot —
-           ; (:GROUND-ZERO-FC-RULES ((rune trigger hyps concls match-free) …)).
-           (t (fms "~x0~%"
-                   (list (cons #\0 (list :ground-zero-fc-rules fc-entries)))
-                   (proofs-co state) state nil)))))))))
+          (let ((state
+                 (cond
+                  ((null fc-entries) state)
+                  ; (Part of emit/ground-zero-rules:) the FC-class snapshot —
+                  ; (:GROUND-ZERO-FC-RULES ((rune trigger hyps concls match-free) …)).
+                  (t (fms "~x0~%"
+                          (list (cons #\0 (list :ground-zero-fc-rules fc-entries)))
+                          (proofs-co state) state nil)))))
+            (let ((linear-entries (gz-linear-rule-entries cited wrld nil)))
+              (cond
+               ((null linear-entries) state)
+               ; (Part of emit/ground-zero-rules:) the LINEAR-class snapshot —
+               ; (:GROUND-ZERO-LINEAR-RULES ((rune hyps concl max-term) ...)).
+               (t (fms "~x0~%"
+                       (list (cons #\0 (list :ground-zero-linear-rules
+                                              linear-entries)))
+                       (proofs-co state) state nil)))))))))))
 
 (defmacro set-raw-warning-format (flg)
   (declare (xargs :guard (member-equal flg '(t 't nil 'nil))))
