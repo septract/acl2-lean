@@ -8527,14 +8527,33 @@
 ; A non-nil contradictionp is a poly meaning linear proved current-clause
 ; (modulo the assumptions in the tag-tree of the poly).
 
-                  (mv step-limit
-                      'hit
-                      nil
-                      (cons-tag-trees
-                       remove-trivial-equivalences-ttree
-                       (push-lemma
-                        *fake-rune-for-linear*
-                        (access poly contradictionp :ttree)))))
+; TRACE-LOG[emit/simplify-clause/linear-contradiction]: discharge node — the
+; whole clause is proved because the initial LINEAR pot construction reached
+; a contradiction over the negated literals (the poly's ttree runes; no
+; recorded derivation — verdict-class). Same shape as
+; emit/simplify-clause/fc-contradiction so the DP carve-out picks the leaf
+; up; the cited :LINEAR rules' content rides the
+; (:GROUND-ZERO-LINEAR-RULES ...) snapshot for the replay-side premises.
+                  (prog2$
+                   #-acl2-loop-only
+                   (when (and (consp *structured-rewrite-log*)
+                              (not (equal current-clause *true-clause*)))
+                     (push (list :rewrite-step
+                                 :rune '(:fake-rune-for-linear nil)
+                                 :origin 'simplify-clause/linear-contradiction
+                                 :equiv 'equal
+                                 :lhs (disjoin current-clause)
+                                 :rhs *t*)
+                           (cdr *structured-rewrite-log*)))
+                   #+acl2-loop-only nil
+                   (mv step-limit
+                       'hit
+                       nil
+                       (cons-tag-trees
+                        remove-trivial-equivalences-ttree
+                        (push-lemma
+                         *fake-rune-for-linear*
+                         (access poly contradictionp :ttree))))))
                  (t
                   (mv-let
                    (flg new-current-clause ttree)
