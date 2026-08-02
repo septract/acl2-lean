@@ -32,6 +32,31 @@
 (defvar *structured-rewrite-log* nil
   "When non-nil, accumulates rewrite steps for structured proof output.")
 
+; TRACE-LOG[infra/ta-derivations]: walk a type-alist entry's ttree into the
+; :TA-DERIVATIONS provenance payload (close-out cluster item 4, 2026-08-02):
+; one entry per fc-derivation — the deriving :RUNE, instantiated :CONCL,
+; :TRIGGER, :SUBST, the grounding parent-tree tags (:PARENTS, the 'pt
+; objects naming the clause literals the chain grounds in), and the nested
+; :SUPPORTS chain (recursively more derivations). Pure read-off of ACL2's
+; own fc-derivation records; serves the free-type-alist relief marker and
+; BUG-027's equation-edge justifications (narrow-via-emission, MDD
+; 2026-08-02). Raw-mode only (called inside #-acl2-loop-only pushes);
+; defined AFTER the fc-derivation defrec's macros are loaded is not needed —
+; access expands at compile time against linear-a.lisp's record, which
+; precedes rewrite.lisp in the build order.
+#-acl2-loop-only
+(defun structured-ta-derivations (ttree)
+  (let ((fcds (tagged-objects 'fc-derivation ttree)))
+    (loop for fcd in fcds collect
+          (list :rune (access fc-derivation fcd :rune)
+                :concl (access fc-derivation fcd :concl)
+                :trigger (access fc-derivation fcd :inst-trigger)
+                :subst (access fc-derivation fcd :unify-subst)
+                :parents (tagged-objects 'pt
+                                         (access fc-derivation fcd :ttree))
+                :supports (structured-ta-derivations
+                           (access fc-derivation fcd :ttree))))))
+
 ; TRACE-LOG[infra/structured-rules]: stash for the REWRITE rules created since
 ; the last flush — one (name hyps equiv lhs rhs) entry per stored rule, pushed
 ; by create-rewrite-rule (a raw side effect; pure in the logic) and printed as
@@ -19507,7 +19532,13 @@ its attachment is ignored during proofs"))))
                               :hyp ihyp)
                         (and entry
                              (list :ta-runes
-                                   (all-runes-in-ttree (cddr entry) nil))))
+                                   (all-runes-in-ttree (cddr entry) nil)
+                                   ; item 4 (2026-08-02): the DERIVATION
+                                   ; structure, not just flattened runes —
+                                   ; see infra/ta-derivations
+                                   :ta-derivations
+                                   (structured-ta-derivations
+                                    (cddr entry)))))
                        (cdr *structured-rewrite-log*))))
              #+acl2-loop-only nil
              (mv step-limit relieve-hyps-ans nil unify-subst1 ttree1 allp
