@@ -758,11 +758,18 @@
      ; the chain's true ROOT term is constraint-cl, which the replay cannot
      ; reconstruct from the goal clause (sorts-equivalent Class B: the
      ; preprocess :PATH walks constraint-cl, not the input clause).
+     ; :LMI-LST (close-out R7a, 2026-08-02): the lemma instances that
+     ; generated the hyps, verbatim and positionally aligned with :HYPS —
+     ; each is a name, (:instance name (var . term)...), or
+     ; (:functional-instance ...); the replay discharges each hyp from the
+     ; NAMED lemma's replayed statement (matching would be checker-side
+     ; inference, banned).
      #-acl2-loop-only
      (when (consp *structured-rewrite-log*)
        (push (list :use-hint
                    :origin 'use-hint/payload :equiv 'equal
                    :hyps hyps
+                   :lmi-lst (cadr temp)
                    :constraint-cl constraint-cl
                    :application-clauses A)
              (cdr *structured-rewrite-log*)))

@@ -12208,8 +12208,12 @@
                                                (and (null instructions)
                                                     (default-hints wrld1))
                                                ctx wrld1 state)))
-; TRACE-LOG[emit/defthm]: emit (:DEFTHM name :FORMULA :SOURCE) to the proof log in
-; :structured mode — one top-level event per admitted theorem.
+; TRACE-LOG[emit/defthm]: emit (:DEFTHM name :FORMULA :SOURCE :CLASSES) to the
+; proof log in :structured mode — one top-level event per admitted theorem.
+; :CLASSES (close-out cluster item 5, 2026-08-02): the event's RAW
+; rule-classes, verbatim — closes the equivrefl shape-parse caveat (the
+; replay gates :EQUIVALENCE/:CONGRUENCE consumption on the DECLARED class,
+; not on formula shape).
                    (ignore
                     (if (eq (f-get-global 'raw-proof-format state) :structured)
                         (pprogn
@@ -12230,14 +12234,15 @@
                             (setq *structured-rules* nil))
                           #+acl2-loop-only nil
                           state)
-                         (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2)~%"
+                         (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2 :CLASSES ~x3)~%"
                               (list (cons #\0 name)
                                     (cons #\1 (untranslate tterm0 t wrld))
                                     (cons #\2 (if (or (eq ld-skip-proofsp 'include-book)
                                                       (eq ld-skip-proofsp
                                                           'include-book-with-locals))
                                                   :include-book
-                                                :local)))
+                                                :local))
+                                    (cons #\3 rule-classes))
                               (proofs-co state) state nil)
                          (value nil))
                       (value nil)))
