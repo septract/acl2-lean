@@ -6449,10 +6449,34 @@
                              sig-fns transparent-mismatch)))
                       (t
                        (let* ((wrld2
-                               (putprop-constraints
-                                (car sig-fns)
-                                (remove1-eq (car sig-fns) constrained-fns)
-                                (if unknown-constraints-p
+; TRACE-LOG[emit/constraints]: the scope's CONSTRAINT data (justified-
+; extensions design, close-out R6 2026-08-02) — :FNS the constrained fns,
+; :FORMULAS verbatim from ACL2's constraint-lst (the axioms the encapsulate
+; adds; their conjunction is what putprop-constraints stores). Emitted inside
+; the ENCAPSULATE-BEGIN/END bracket; UNKNOWN-constraints scopes emit
+; :FORMULAS :UNKNOWN-CONSTRAINTS (the parser hard-fails on it — fail-closed).
+                               (prog2$
+                                #-acl2-loop-only
+                                (when (eq (f-get-global 'raw-proof-format
+                                                        state)
+                                          :structured)
+                                  (fms "(:CONSTRAINTS :FNS ~x0 :FORMULAS ~x1)~%"
+                                       (list
+                                        (cons #\0
+                                              (cons (car sig-fns)
+                                                    (remove1-eq
+                                                     (car sig-fns)
+                                                     constrained-fns)))
+                                        (cons #\1
+                                              (if unknown-constraints-p
+                                                  :unknown-constraints
+                                                (car constraint-lst-etc))))
+                                       (proofs-co state) state nil))
+                                #+acl2-loop-only nil
+                                (putprop-constraints
+                                 (car sig-fns)
+                                 (remove1-eq (car sig-fns) constrained-fns)
+                                 (if unknown-constraints-p
 
 ; Manufacture a constraint-lst-etc with unknown constraints.
 
@@ -6504,7 +6528,7 @@
                                                           :names nil)
                                                     wrld)
                                          wrld))))
-                                  wrld)))
+                                  wrld))))
                               (state (set-w 'extension wrld2 state))
                               (bogus-exported-compliants
                                (bogus-exported-compliants
@@ -8655,6 +8679,19 @@
                          (global-set 'proof-supporters-alist nil wrld1)
                          state)
                   (print-encapsulate-msg1 insigs ev-lst state)
+; TRACE-LOG[emit/encapsulate-begin]: bracket OPEN for this encapsulate's scope
+; (justified-extensions design, close-out R6 2026-08-02): everything between
+; this marker and the matching (:ENCAPSULATE-END) — BOTH passes' events —
+; belongs to the scope; the parser dedups pass-1/pass-2 re-emissions within
+; the bracket and reads the scope's constraint data from the separate
+; (:CONSTRAINTS …) event emitted at putprop-constraints. :SIGS names the
+; signature fns (nil for trivial grouping encapsulates; brackets are ALWAYS
+; balanced — the END emits on the success exit unconditionally).
+                  (if (eq (f-get-global 'raw-proof-format state) :structured)
+                      (fms "(:ENCAPSULATE-BEGIN :SIGS ~x0)~%"
+                           (list (cons #\0 (strip-cars insigs)))
+                           (proofs-co state) state nil)
+                    state)
                   (er-let*
                       ((expansion-alist
                         (state-global-let*
@@ -8806,7 +8843,17 @@
                                                   (intro-udf-non-classicalp
                                                    insigs kwd-value-list-lst
                                                    wrld3a))))
-                                      (install-event
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE (see emit/encapsulate-begin);
+; emitted on BOTH success exits (the proving path and the skip-proofs path)
+; so brackets are always balanced.
+                                      (pprogn
+                                       (if (eq (f-get-global
+                                                'raw-proof-format state)
+                                               :structured)
+                                           (fms "(:ENCAPSULATE-END)~%" nil
+                                                (proofs-co state) state nil)
+                                         state)
+                                       (install-event
                                        (cond
                                         ((encapsulate-return-value-p retval)
                                          (cadr retval))
@@ -8927,7 +8974,7 @@
                                                     wrld10)
                                                  wrld10)))
                                          wrld11)
-                                       state))))))))))))))))))))
+                                       state)))))))))))))))))))))
 
            (t ; (ld-skip-proofsp state) = 'include-book
 ;                                         'include-book-with-locals or
@@ -8989,7 +9036,15 @@
                              #+:non-standard-analysis
                              (wrld3a (value (intro-udf-non-classicalp
                                              insigs kwd-value-list-lst wrld3a))))
-                          (install-event (cond
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE, skip-proofs path (twin of
+; the proving-path emission — brackets always balanced).
+                          (pprogn
+                           (if (eq (f-get-global 'raw-proof-format state)
+                                   :structured)
+                               (fms "(:ENCAPSULATE-END)~%" nil
+                                    (proofs-co state) state nil)
+                             state)
+                           (install-event (cond
                                           ((encapsulate-return-value-p retval)
                                            (cadr retval))
                                           ((null names) t)
@@ -9013,7 +9068,7 @@
 ; initialization.
 
                                          wrld3a
-                                         state)))))))))))))))
+                                         state))))))))))))))))
      :event-type 'encapsulate)))
 
 (defun progn-fn1 (ev-lst progn!p bindings state)
