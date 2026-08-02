@@ -14369,6 +14369,7 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite-if11 ; *structured-rewrite-log*
     apply-use-hint-clauses ; *structured-rewrite-log*
     encapsulate-pass-2 ; *structured-rewrite-log* (emit/constraints)
+    forward-chain-top ; *structured-rewrite-log* (emit/fc-derivations)
     relieve-hyp-synp ; *deep-gstack*
     ev-w-lst ; *the-live-state*
     simplify-clause1 ; dmr-flush

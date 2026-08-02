@@ -4647,7 +4647,49 @@
 ; with fc-derivations (and thus, hidden assumptions) and other fcds whose
 ; ttrees are known to be fcd-free.
 
-                 (let ((fc-pair-lst (fc-pair-lst all-approved-fcds)))
+                 (progn$
+                  ; TRACE-LOG[emit/fc-derivations]: the clause's approved
+                  ; forward-chaining DERIVATIONS, emitted at the exact point
+                  ; they are flattened to fcd-free (concl . ttree) pairs
+                  ; (cluster item 4, 2026-08-02 — downstream type-alist
+                  ; entries carry only 'lemma runes, so the relief-site
+                  ; :TA-DERIVATIONS is NIL there by construction; the replay
+                  ; JOINS this block's :CONCL with the relieved hyp /
+                  ; entry term, deterministically). Per fcd: the deriving
+                  ; :RUNE, instantiated :CONCL, :TRIGGER, :SUBST, grounding
+                  ; :PARENTS ('pt objects → clause literals), and the nested
+                  ; :SUPPORTS chain (structured-ta-derivations on the fcd's
+                  ; own ttree). Serves the LEXORDER-TRANSITIVE marker-relief
+                  ; class + BUG-027 narrow-via-emission.
+                  #-acl2-loop-only
+                  (when (and (consp *structured-rewrite-log*)
+                             all-approved-fcds)
+                    (push (list :fc-derivations
+                                :origin 'fc-derivations :equiv 'equal
+                                :derivations
+                                (loop for fcd in all-approved-fcds collect
+                                      (list :rune
+                                            (access fc-derivation fcd :rune)
+                                            :concl
+                                            (access fc-derivation fcd :concl)
+                                            :trigger
+                                            (access fc-derivation fcd
+                                                    :inst-trigger)
+                                            :subst
+                                            (access fc-derivation fcd
+                                                    :unify-subst)
+                                            :parents
+                                            (tagged-objects
+                                             'pt
+                                             (access fc-derivation fcd
+                                                     :ttree))
+                                            :supports
+                                            (structured-ta-derivations
+                                             (access fc-derivation fcd
+                                                     :ttree)))))
+                          (cdr *structured-rewrite-log*)))
+                  #+acl2-loop-only nil
+                  (let ((fc-pair-lst (fc-pair-lst all-approved-fcds)))
                    (mv-let
                     (contradictionp type-alist3 ttree3)
                     (fc-pair-lst-type-alist
@@ -4674,7 +4716,7 @@
                          (fc-exit nil type-alist4 fc-pair-lst
 ;                            (mv nil type-alist4 fc-pair-lst)
 ; ... and the stuff we need to do reporting ...
-                                  caller rounds all-approved-fcds activations1)))))))))))))))))
+                                  caller rounds all-approved-fcds activations1))))))))))))))))))
 
 (defun forward-chain (cl pts force-flg do-not-reconsiderp wrld ens
                          oncep-override state)
