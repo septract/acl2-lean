@@ -8688,10 +8688,11 @@
 ; here). The scope's constraint data rides the separate (:CONSTRAINTS …)
 ; event emitted at putprop-constraints. :SIGS names the
 ; signature fns (nil for trivial grouping encapsulates). REAL INVARIANT
-; (audit 2026-08-03 F2): brackets are balanced in any SUCCESSFUL capture —
-; BEGIN on both entry paths (proving + include-book), END on all three
-; success exits (proving, include-book, :empty-encapsulate); an ERROR exit
-; aborts the capture, and the Lean parser enforces balance at EOF.
+; (audit 2026-08-03 F2 + fresh-verify N1): brackets are balanced in any
+; SUCCESSFUL capture — BEGIN on both entry paths (proving + include-book),
+; END on all FOUR success exits (proving, proving :empty-encapsulate,
+; include-book, include-book :empty-encapsulate); an ERROR exit aborts the
+; capture, and the Lean parser enforces balance at EOF.
                   (if (eq (f-get-global 'raw-proof-format state) :structured)
                       (fms "(:ENCAPSULATE-BEGIN :SIGS ~x0)~%"
                            (list (cons #\0 (strip-cars insigs)))
@@ -9045,7 +9046,17 @@
                                     state)
                       (cond
                        (empty-encapsulate-p
-                        (empty-encapsulate ctx state))
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE on the INCLUDE-BOOK path's
+; :empty-encapsulate SUCCESS exit — the FOURTH success exit (audit 2026-08-03
+; fresh-verify N1: previously skipped, leaving the include-path BEGIN
+; unclosed for include-book'd local-only encapsulates).
+                        (pprogn
+                         (if (eq (f-get-global 'raw-proof-format state)
+                                 :structured)
+                             (fms "(:ENCAPSULATE-END)~%" nil
+                                  (proofs-co state) state nil)
+                           state)
+                         (empty-encapsulate ctx state)))
                        (t
                         (er-let*
                             ((wrld3a (intro-udf-guards
