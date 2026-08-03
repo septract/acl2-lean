@@ -52,8 +52,12 @@
                 :concl (access fc-derivation fcd :concl)
                 :trigger (access fc-derivation fcd :inst-trigger)
                 :subst (access fc-derivation fcd :unify-subst)
-                :parents (tagged-objects 'pt
-                                         (access fc-derivation fcd :ttree))
+                :fc-round (access fc-derivation fcd :fc-round)
+                ; collect-parents, not raw 'pt tags (audit 2026-08-03
+                ; F9): pt objects can be TREES; ACL2's own report
+                ; flattens them to literal indices the same way
+                :parents (collect-parents
+                          (access fc-derivation fcd :ttree))
                 :supports (structured-ta-derivations
                            (access fc-derivation fcd :ttree))))))
 

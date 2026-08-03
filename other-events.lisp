@@ -8682,11 +8682,16 @@
 ; TRACE-LOG[emit/encapsulate-begin]: bracket OPEN for this encapsulate's scope
 ; (justified-extensions design, close-out R6 2026-08-02): everything between
 ; this marker and the matching (:ENCAPSULATE-END) — BOTH passes' events —
-; belongs to the scope; the parser dedups pass-1/pass-2 re-emissions within
-; the bracket and reads the scope's constraint data from the separate
-; (:CONSTRAINTS …) event emitted at putprop-constraints. :SIGS names the
-; signature fns (nil for trivial grouping encapsulates; brackets are ALWAYS
-; balanced — the END emits on the success exit unconditionally).
+; belongs to the scope; BOTH passes re-emit :DEFTHM events inside the
+; bracket (per-scope dedup is the Lean side's PHASE-4 obligation — recorded
+; in TODO; audit 2026-08-03 F5 corrected an earlier present-tense claim
+; here). The scope's constraint data rides the separate (:CONSTRAINTS …)
+; event emitted at putprop-constraints. :SIGS names the
+; signature fns (nil for trivial grouping encapsulates). REAL INVARIANT
+; (audit 2026-08-03 F2): brackets are balanced in any SUCCESSFUL capture —
+; BEGIN on both entry paths (proving + include-book), END on all three
+; success exits (proving, include-book, :empty-encapsulate); an ERROR exit
+; aborts the capture, and the Lean parser enforces balance at EOF.
                   (if (eq (f-get-global 'raw-proof-format state) :structured)
                       (fms "(:ENCAPSULATE-BEGIN :SIGS ~x0)~%"
                            (list (cons #\0 (strip-cars insigs)))
@@ -8783,7 +8788,16 @@
                                              state)
                                (cond
                                 ((eq (car temp) :empty-encapsulate)
-                                 (empty-encapsulate ctx state))
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE on the :empty-encapsulate
+; SUCCESS exit (audit 2026-08-03 F2 — this exit previously skipped the END).
+                                 (pprogn
+                                  (if (eq (f-get-global 'raw-proof-format
+                                                        state)
+                                          :structured)
+                                      (fms "(:ENCAPSULATE-END)~%" nil
+                                           (proofs-co state) state nil)
+                                    state)
+                                  (empty-encapsulate ctx state)))
                                 (t
                                  (let* ((wrld3 (w state))
                                         (constrained-fns (nth 0 temp))
@@ -8843,9 +8857,8 @@
                                                   (intro-udf-non-classicalp
                                                    insigs kwd-value-list-lst
                                                    wrld3a))))
-; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE (see emit/encapsulate-begin);
-; emitted on BOTH success exits (the proving path and the skip-proofs path)
-; so brackets are always balanced.
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE, proving path (see
+; emit/encapsulate-begin for the real balance invariant).
                                       (pprogn
                                        (if (eq (f-get-global
                                                 'raw-proof-format state)
@@ -8990,6 +9003,15 @@
                      (wrld1 (cddr trip)))
                 (pprogn
                  (set-w 'extension wrld1 state)
+; TRACE-LOG[emit/encapsulate-begin]: bracket OPEN on the INCLUDE-BOOK path
+; (audit 2026-08-03 F2 — this path previously emitted only the END, so every
+; include-book'd encapsulate produced a stray close; mirror of the
+; proving-path BEGIN).
+                 (if (eq (f-get-global 'raw-proof-format state) :structured)
+                     (fms "(:ENCAPSULATE-BEGIN :SIGS ~x0)~%"
+                          (list (cons #\0 (strip-cars insigs)))
+                          (proofs-co state) state nil)
+                   state)
                  (er-let*
 
 ; The following encapsulate-pass-2 is protected by the revert-world-on
@@ -9036,8 +9058,9 @@
                              #+:non-standard-analysis
                              (wrld3a (value (intro-udf-non-classicalp
                                              insigs kwd-value-list-lst wrld3a))))
-; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE, skip-proofs path (twin of
-; the proving-path emission — brackets always balanced).
+; TRACE-LOG[emit/encapsulate-end]: bracket CLOSE, include-book path (paired
+; with the include-book BEGIN above; see emit/encapsulate-begin for the real
+; balance invariant).
                           (pprogn
                            (if (eq (f-get-global 'raw-proof-format state)
                                    :structured)

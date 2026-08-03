@@ -4678,9 +4678,14 @@
                                             :subst
                                             (access fc-derivation fcd
                                                     :unify-subst)
+                                            :fc-round
+                                            (access fc-derivation fcd
+                                                    :fc-round)
+                                            ; collect-parents (audit
+                                            ; 2026-08-03 F9): pt objects
+                                            ; can be TREES
                                             :parents
-                                            (tagged-objects
-                                             'pt
+                                            (collect-parents
                                              (access fc-derivation fcd
                                                      :ttree))
                                             :supports
