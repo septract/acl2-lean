@@ -12234,8 +12234,15 @@
                             (setq *structured-rules* nil))
                           #+acl2-loop-only nil
                           state)
-                         (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2 :CLASSES ~x3)~%"
+                         ; :TFORMULA (fork-batch item 4, R7a follow-up): the
+                         ; TRANSLATED statement verbatim (tterm0) alongside the
+                         ; display :FORMULA — cross-book :use citations of
+                         ; include-book theorems cross-check against ACL2's
+                         ; translated :HYPS instances, which the raw form can
+                         ; never match (R7a audit F1).
+                         (fms "(:DEFTHM ~x0 :FORMULA ~x1 :SOURCE ~x2 :CLASSES ~x3 :TFORMULA ~x4)~%"
                               (list (cons #\0 name)
+                                    (cons #\4 tterm0)
                                     (cons #\1 (untranslate tterm0 t wrld))
                                     (cons #\2 (if (or (eq ld-skip-proofsp 'include-book)
                                                       (eq ld-skip-proofsp

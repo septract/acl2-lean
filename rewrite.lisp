@@ -5236,14 +5236,18 @@ its attachment is ignored during proofs"))))
                       (t (1-f bound)))))
                 (declare (type #.*fixnat-type* new-bound))
                 (progn$
-                 ; TRACE-LOG[emit/solidify/rewriting-equiv]: rewrite-step (:rewriting-equivalence) in rewrite-solidify-rec
+                 ; TRACE-LOG[emit/solidify/rewriting-equiv]: rewrite-step (:rewriting-equivalence) in rewrite-solidify-rec.
+                 ; :equiv is the LICENSING relation — the head of the type-alist equation
+                 ; find-rewriting-equivalence selected (geneqv-refinement guaranteed there);
+                 ; the earlier hardcoded 'equal under-reported R-steps (equisort-r6 audit /
+                 ; fork-batch item 3, the R-lane prerequisite).
                  #-acl2-loop-only
                  (when (and (consp *structured-rewrite-log*)
                             (not (equal term (fargn eterm 2))))
                    (push (list :rewrite-step
                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
                                :rune '(:rewriting-equivalence nil)
-                               :origin 'solidify/rewriting-equiv :equiv 'equal
+                               :origin 'solidify/rewriting-equiv :equiv (ffn-symb eterm)
                                :lhs term
                                :rhs (fargn eterm 2)
                                :equiv-term eterm
@@ -18349,9 +18353,41 @@ its attachment is ignored during proofs"))))
       (assoc-type-alist (fcons-term* 'equal lhs rhs) type-alist wrld)
       (cond
        ((and ts-lookup (ts= ts-lookup *ts-t*))
-        (mv step-limit *t* (cons-tag-trees ttree-lookup ttree)))
+        ; TRACE-LOG[emit/equal/type-alist-t]: rewrite-step (:type-alist) in rewrite-equal —
+        ; the assoc-type-alist TRUE verdict on (equal lhs rhs), previously SILENT
+        ; (equisort-r6 audit F5: the unrecorded clause-context collapse class).
+        (progn$
+         #-acl2-loop-only
+         (when (and (consp *structured-rewrite-log*)
+                    t)
+           (push (list :rewrite-step
+                       :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                       :rune '(:type-alist nil)
+                       :origin 'equal/type-alist-t :equiv 'equal
+                       :lhs (fcons-term* 'equal lhs rhs)
+                       :rhs *t*
+                       :ta-runes (all-runes-in-ttree ttree-lookup nil))
+                 (cdr *structured-rewrite-log*)))
+         #+acl2-loop-only nil
+         (mv step-limit *t* (cons-tag-trees ttree-lookup ttree))))
        ((and ts-lookup (ts= ts-lookup *ts-nil*))
-        (mv step-limit *nil* (cons-tag-trees ttree-lookup ttree)))
+        ; TRACE-LOG[emit/equal/type-alist-nil]: rewrite-step (:type-alist) in rewrite-equal —
+        ; the assoc-type-alist FALSE verdict on (equal lhs rhs), previously SILENT
+        ; (the exact arm behind equisort's strong/weak (EQUAL s1 s2) => 'NIL gap).
+        (progn$
+         #-acl2-loop-only
+         (when (and (consp *structured-rewrite-log*)
+                    t)
+           (push (list :rewrite-step
+                       :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                       :rune '(:type-alist nil)
+                       :origin 'equal/type-alist-nil :equiv 'equal
+                       :lhs (fcons-term* 'equal lhs rhs)
+                       :rhs *nil*
+                       :ta-runes (all-runes-in-ttree ttree-lookup nil))
+                 (cdr *structured-rewrite-log*)))
+         #+acl2-loop-only nil
+         (mv step-limit *nil* (cons-tag-trees ttree-lookup ttree))))
        (t
         (let ((ens (access rewrite-constant rcnst
                            :current-enabled-structure))
@@ -18426,18 +18462,48 @@ its attachment is ignored during proofs"))))
               ((equal rhs *nil*)
                (mv step-limit (mcons-term* 'if lhs *nil* *t*) (puffert ttree)))
               ((equalityp lhs)
-               (mv step-limit (mcons-term* 'if
-                                           lhs
-                                           (mcons-term* 'equal rhs *t*)
-                                           (mcons-term* 'if rhs *nil* *t*))
-                   (puffert ttree)))
+               ; TRACE-LOG[emit/equal/case-split-lhs]: rewrite-step in rewrite-equal —
+               ; the boolean CASE-RESTRUCTURING of (equal (equal a b) rhs), previously
+               ; SILENT (tpthm audit F7: the counter-example row's recorded end-state
+               ; reflected this arm with no emitted step).
+               (let ((rrhs (mcons-term* 'if
+                                        lhs
+                                        (mcons-term* 'equal rhs *t*)
+                                        (mcons-term* 'if rhs *nil* *t*))))
+                 (progn$
+                  #-acl2-loop-only
+                  (when (and (consp *structured-rewrite-log*)
+                             t)
+                    (push (list :rewrite-step
+                                :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                                :rune '(:equal-case-split nil)
+                                :origin 'equal/case-split-lhs :equiv 'equal
+                                :lhs (fcons-term* 'equal lhs rhs)
+                                :rhs rrhs)
+                          (cdr *structured-rewrite-log*)))
+                  #+acl2-loop-only nil
+                  (mv step-limit rrhs (puffert ttree)))))
               ((equalityp rhs)
-               (mv step-limit
-                   (mcons-term* 'if
-                                rhs
-                                (mcons-term* 'equal lhs *t*)
-                                (mcons-term* 'if lhs *nil* *t*))
-                   (puffert ttree)))
+               ; TRACE-LOG[emit/equal/case-split-rhs]: rewrite-step in rewrite-equal —
+               ; the boolean CASE-RESTRUCTURING of (equal lhs (equal a b)), previously
+               ; SILENT (the twin of case-split-lhs; same audit finding).
+               (let ((rrhs (mcons-term* 'if
+                                        rhs
+                                        (mcons-term* 'equal lhs *t*)
+                                        (mcons-term* 'if lhs *nil* *t*))))
+                 (progn$
+                  #-acl2-loop-only
+                  (when (and (consp *structured-rewrite-log*)
+                             t)
+                    (push (list :rewrite-step
+                                :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                                :rune '(:equal-case-split nil)
+                                :origin 'equal/case-split-rhs :equiv 'equal
+                                :lhs (fcons-term* 'equal lhs rhs)
+                                :rhs rrhs)
+                          (cdr *structured-rewrite-log*)))
+                  #+acl2-loop-only nil
+                  (mv step-limit rrhs (puffert ttree)))))
               ((and (ts-subsetp ts-lhs *ts-cons*)
                     (ts-subsetp ts-rhs *ts-cons*)
                     (not (member-equal lhs lhs-ancestors))
@@ -20626,6 +20692,20 @@ its attachment is ignored during proofs"))))
                                               ; (see emit/abbreviation-expansion)
                                               :equiv (access rewrite-rule lemma
                                                              :equiv)
+                                              ; the AMBIENT geneqv's relation
+                                              ; symbols (fork-batch item 3, the
+                                              ; R-lane prerequisite): the honest
+                                              ; net-step relation when the rhs
+                                              ; chain used a weaker R — the rule's
+                                              ; :equiv alone under-reports that
+                                              ; case (equisort-r6 audit F12).
+                                              ; nil geneqv = equal-only.
+                                              :geneqv (if (null geneqv)
+                                                          '(equal)
+                                                        (loop for cr in geneqv
+                                                              collect
+                                                              (access congruence-rule
+                                                                      cr :equiv)))
                                               :lhs term
                                               :rhs rewritten-rhs
                                               ; unify-subst maps the rule's
