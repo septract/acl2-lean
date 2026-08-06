@@ -14364,6 +14364,9 @@ evaluated.  See :DOC certify-book, in particular, the discussion about ``Step
     rewrite ; *structured-rewrite-log*
     rewrite-solidify-rec ; *structured-rewrite-log*
     rewrite-recognizer ; *structured-rewrite-log*
+    add-literal ; *structured-rewrite-log* (emit/complement-close, batch item 7)
+    expunge-fc-derivations ; *structured-rewrite-log* (emit/fc-derivations-expunged, item 3)
+    try-type-set-and-clause ; *structured-rewrite-log* (emit/atm/try-type-set, item 5)
     rewrite-equal ; *structured-rewrite-log*
     rewrite-if1 ; *structured-rewrite-log*
     rewrite-if11 ; *structured-rewrite-log*
