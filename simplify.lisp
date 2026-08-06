@@ -116,7 +116,23 @@
          (cond ((equal lit *nil*) cl)
                (t *true-clause*)))
         ((equal cl *true-clause*) *true-clause*)
-        ((member-complement-term lit cl) *true-clause*)
+        ((member-complement-term lit cl)
+; TRACE-LOG[emit/complement-close]: fork-batch item 7 (2026-08-06,
+; PRIORITY — the B1 expiry): the add-literal COMPLEMENT close, until now
+; entirely silent — the added literal's complement is already among the
+; clause's literals, so the clause is true. The Lean replay's
+; complement-tautology arm previously INFERRED this close from the
+; absence of a recorded continuation (user-ruled expiry 2026-08-06);
+; with the close recorded, the arm becomes a read-off. Scope: ONLY the
+; member-complement-term branch — the rationalp/integerp
+; cross-recognizer closes below are a different class and stay loud
+; frontiers until they occur.
+         #-acl2-loop-only
+         (when (consp *structured-rewrite-log*)
+           (push (list :complement-close :origin 'complement-close
+                       :lit lit)
+                 (cdr *structured-rewrite-log*)))
+         *true-clause*)
         ((variablep lit)
          (cond ((member-term lit cl) cl)
                (at-end-flg (append cl (list lit)))
@@ -1710,6 +1726,37 @@
 
   (let ((objects (tagged-objects 'fc-derivation ttree)))
     (cond (objects
+; TRACE-LOG[emit/fc-derivations-expunged]: fork-batch item 3 (2026-08-06,
+; the ITEM-4 diagnosis) — the EXPUNGE point is where fc-derivation
+; provenance dies (records collapse to bare runes, which is why
+; :TA-DERIVATIONS arrived all-NIL downstream). Record each derivation
+; (same :derivations shape as emit/fc-derivations, so the parser is
+; shared) BEFORE expunging. Serves the LEXORDER-TRANSITIVE marker-relief
+; class (HOW-MANY-SMALLER-BNEXT) and retires the Lean-side R1
+; equation-closure search rung (drift expiry).
+           #-acl2-loop-only
+           (when (consp *structured-rewrite-log*)
+             (push (list :fc-derivations
+                         :origin 'fc-derivations-expunged :equiv 'equal
+                         :derivations
+                         (loop for fcd in objects collect
+                               (list :rune
+                                     (access fc-derivation fcd :rune)
+                                     :concl
+                                     (access fc-derivation fcd :concl)
+                                     :trigger
+                                     (access fc-derivation fcd :inst-trigger)
+                                     :subst
+                                     (access fc-derivation fcd :unify-subst)
+                                     :fc-round
+                                     (access fc-derivation fcd :fc-round)
+                                     :parents
+                                     (collect-parents
+                                      (access fc-derivation fcd :ttree))
+                                     :supports
+                                     (structured-ta-derivations
+                                      (access fc-derivation fcd :ttree)))))
+                   (cdr *structured-rewrite-log*)))
            (expunge-fc-derivations-assumptions
             (expunge-fc-derivations-lst
              objects
@@ -5508,9 +5555,37 @@
 ; from the clause to reduce clutter.  We certainly do not lose anything by
 ; allowing such removals.
 
-           (mv *nil* (cons-tag-trees ttree1 ttree0) nil))
+; TRACE-LOG[emit/atm/try-type-set]: fork-batch item 5 (2026-08-06) — the
+; literal-boundary TYPE-SET verdict (both polarities): atm reduces to
+; 'NIL/'T by type-set in isolation, previously silent. Verdict-class
+; (runes carried); part of the boundary-normalization record set.
+           (progn$
+            #-acl2-loop-only
+            (when (consp *structured-rewrite-log*)
+              (push (list :rewrite-step
+                          :rune '(:fake-rune-for-type-set nil)
+                          :origin 'atm/try-type-set :equiv 'equal
+                          :lhs atm
+                          :rhs *nil*
+                          :runes (all-runes-in-ttree ttree1 nil))
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv *nil* (cons-tag-trees ttree1 ttree0) nil)))
           ((ts-subsetp ts *ts-non-nil*)
-           (mv *t* (cons-tag-trees ttree1 ttree0) nil))
+; (Part of emit/atm/try-type-set:) the truthy polarity — IFF-only (the
+; value is non-nil, not necessarily 'T; the boundary maintains iff).
+           (progn$
+            #-acl2-loop-only
+            (when (consp *structured-rewrite-log*)
+              (push (list :rewrite-step
+                          :rune '(:fake-rune-for-type-set nil)
+                          :origin 'atm/try-type-set :equiv 'iff
+                          :lhs atm
+                          :rhs *t*
+                          :runes (all-runes-in-ttree ttree1 nil))
+                    (cdr *structured-rewrite-log*)))
+            #+acl2-loop-only nil
+            (mv *t* (cons-tag-trees ttree1 ttree0) nil)))
           ((try-clause atm current-clause wrld)
            (mv ans ttree nil))
           (t
@@ -5917,6 +5992,25 @@
 ; reasonable to keep this in sync with the corresponding use of subcor-var in
 ; rewrite.
 
+; TRACE-LOG[emit/atm/implies-expand]: fork-batch item 5 (2026-08-06) —
+; the IMPLIES re-expansion at the literal boundary: the rewrite's result
+; is abandoned but the (IMPLIES x y) => if-form expansion is KEPT,
+; previously with no record (the "IMPLIES-antecedent drop" class).
+                                      (progn$
+                                       #-acl2-loop-only
+                                       (when (consp *structured-rewrite-log*)
+                                         (push (list :rewrite-step
+                                                     :rune '(:definition implies)
+                                                     :origin 'atm/implies-expand
+                                                     :equiv 'equal
+                                                     :lhs atm
+                                                     :rhs (subcor-var
+                                                           (formals 'implies wrld)
+                                                           (list (fargn atm 1)
+                                                                 (fargn atm 2))
+                                                           (bbody 'implies)))
+                                               (cdr *structured-rewrite-log*)))
+                                       #+acl2-loop-only nil
                                       (prepend-step-limit
                                        3
                                        (try-type-set-and-clause
@@ -5927,7 +6021,7 @@
                                         ans1 ttree ttree0 current-clause wrld
                                         (access rewrite-constant rcnst
                                                 :current-enabled-structure)
-                                        knownp knownp-ttree)))
+                                        knownp knownp-ttree))))
                                      (t
 
 ; We make one last effort to allow removal of certain ``trivial'' facts from

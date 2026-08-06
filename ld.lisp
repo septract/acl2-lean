@@ -5505,6 +5505,12 @@
           (t acc)))))))
 
 (defun gz-linear-rule-entries (syms wrld acc)
+; (Part of infra/gz-linear-rules:) fork-batch item 1 (2026-08-06) — the
+; PREDEFINED-only gate is DROPPED for the linear class: cited LOCAL
+; :LINEAR rules (bsort's BNEXT-SIZE lemmas — the termination:BSORT
+; parked frontier) now snapshot through the same cited-closure walk,
+; same entry shape, same event (ratified in the batch review). A cited
+; symbol with no :linear runes contributes nothing, as before.
   (declare (xargs :mode :program))
   (cond
    ((endp syms) (reverse acc))
@@ -5512,11 +5518,45 @@
        (cdr syms) wrld
        (let ((s (car syms)))
          (cond
-          ((and (symbolp s)
-                s
-                (getpropc s 'predefined nil wrld))
+          ((and (symbolp s) s)
            (gz-linear-rule-entries-of-runes
             (getpropc s 'runic-mapping-pairs nil wrld) wrld acc))
+          (t acc)))))))
+
+; TRACE-LOG[infra/gz-recognizer-tuples]: fork-batch item 2 (2026-08-06) —
+; the cited-closure RECOGNIZER-TUPLE snapshot: for each cited symbol, the
+; tuples on its 'recognizer-alist property as
+; (fn rune true-ts false-ts strongp) entries, emitted as a separate
+; (:GROUND-ZERO-RECOGNIZER-TUPLES (...)) event. This is the VERDICT BASIS
+; for recognizer and ground-hyp replay (the shape of ACL2's own
+; type-set-recognizer) — it retires the Lean-side builtinRecogFacts
+; registry (drift item R2) and the ground-hyp arm's expiry (user ruling
+; R4, option 2).
+(defun gz-recognizer-tuple-entries-of-tuples (tuples acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp tuples) acc)
+   (t (gz-recognizer-tuple-entries-of-tuples
+       (cdr tuples)
+       (let ((r (car tuples)))
+         (cons (list (access recognizer-tuple r :fn)
+                     (access recognizer-tuple r :rune)
+                     (access recognizer-tuple r :true-ts)
+                     (access recognizer-tuple r :false-ts)
+                     (access recognizer-tuple r :strongp))
+               acc))))))
+
+(defun gz-recognizer-tuple-entries (syms wrld acc)
+  (declare (xargs :mode :program))
+  (cond
+   ((endp syms) (reverse acc))
+   (t (gz-recognizer-tuple-entries
+       (cdr syms) wrld
+       (let ((s (car syms)))
+         (cond
+          ((and (symbolp s) s)
+           (gz-recognizer-tuple-entries-of-tuples
+            (getpropc s 'recognizer-alist nil wrld) acc))
           (t acc)))))))
 
 (defun gz-rule-entries (syms wrld acc)
@@ -5681,15 +5721,49 @@
                   (t (fms "~x0~%"
                           (list (cons #\0 (list :ground-zero-fc-rules fc-entries)))
                           (proofs-co state) state nil)))))
-            (let ((linear-entries (gz-linear-rule-entries cited wrld nil)))
-              (cond
-               ((null linear-entries) state)
-               ; (Part of emit/ground-zero-rules:) the LINEAR-class snapshot —
-               ; (:GROUND-ZERO-LINEAR-RULES ((rune hyps concl max-term) ...)).
-               (t (fms "~x0~%"
-                       (list (cons #\0 (list :ground-zero-linear-rules
-                                              linear-entries)))
-                       (proofs-co state) state nil)))))))))))
+            (let ((state
+                   (let ((linear-entries
+                          (gz-linear-rule-entries cited wrld nil)))
+                     (cond
+                      ((null linear-entries) state)
+                      ; (Part of emit/ground-zero-rules:) the LINEAR-class snapshot —
+                      ; (:GROUND-ZERO-LINEAR-RULES ((rune hyps concl max-term) ...)).
+                      (t (fms "~x0~%"
+                              (list (cons #\0 (list :ground-zero-linear-rules
+                                                    linear-entries)))
+                              (proofs-co state) state nil))))))
+              (let ((recog-entries
+                     (gz-recognizer-tuple-entries cited wrld nil)))
+                (cond
+                 ((null recog-entries) state)
+                 ; (Part of emit/ground-zero-rules:) fork-batch item 2 —
+                 ; (:GROUND-ZERO-RECOGNIZER-TUPLES
+                 ;  ((fn rune true-ts false-ts strongp) ...)).
+                 (t (fms "~x0~%"
+                         (list (cons #\0
+                                     (list :ground-zero-recognizer-tuples
+                                           recog-entries)))
+                         (proofs-co state) state nil))))))))))))
+
+; TRACE-LOG[emit/capture-end]: fork-batch item 8 (2026-08-06, review-1
+; P0-1/P0-2) — the explicit post-ld capture manifest + completion record.
+; :BOOKS is the world's include-book-alist (ACL2's OWN record of exactly
+; which book texts it loaded, incl. book hashes where certified);
+; :STATUS :COMPLETE is the positive END marker. capture-proof-log.sh
+; requires this event at the log tail (a log truncated ANYWHERE before it
+; now fails capture — closing the pairing walk's residual blind spot),
+; and invokes it as the last form before (good-bye).
+(defun emit-capture-manifest (state)
+  (declare (xargs :mode :program :stobjs state))
+  (cond
+   ((not (eq (f-get-global 'raw-proof-format state) :structured))
+    state)
+   (t (fms "~x0~%"
+           (list (cons #\0 (list :capture-end
+                                 :books
+                                 (global-val 'include-book-alist (w state))
+                                 :status :complete)))
+           (proofs-co state) state nil))))
 
 (defmacro set-raw-warning-format (flg)
   (declare (xargs :guard (member-equal flg '(t 't nil 'nil))))

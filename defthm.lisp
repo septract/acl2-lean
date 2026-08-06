@@ -12208,8 +12208,11 @@
                                                (and (null instructions)
                                                     (default-hints wrld1))
                                                ctx wrld1 state)))
-; TRACE-LOG[emit/defthm]: emit (:DEFTHM name :FORMULA :SOURCE :CLASSES) to the
-; proof log in :structured mode — one top-level event per admitted theorem.
+; TRACE-LOG[emit/defthm]: emit (:DEFTHM name :FORMULA :SOURCE :CLASSES
+; :TFORMULA) to the proof log in :structured mode — one top-level event
+; per admitted theorem. (Tag text refreshed 2026-08-06, fork-batch item
+; 4: the earlier tag omitted :TFORMULA — the TRANSLATED formula, emitted
+; since the 2026-08-04 batch and the statement pins' primary anchor.)
 ; :CLASSES (close-out cluster item 5, 2026-08-02): the event's RAW
 ; rule-classes, verbatim — closes the equivrefl shape-parse caveat (the
 ; replay gates :EQUIVALENCE/:CONGRUENCE consumption on the DECLARED class,

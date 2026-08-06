@@ -14430,12 +14430,36 @@
       ((and (not (f-get-global 'boot-strap-flg state))
             full-book-name
             (assoc-equal full-book-name include-book-alist0))
-       (stop-redundant-event ctx state))
+; TRACE-LOG[emit/include-book-edge]: fork-batch item 6 (2026-08-06) — the
+; include GRAPH edge, REDUNDANT-include branch: an already-included book
+; still contributes its edge to the include DAG (the second consumer of
+; a shared dependency must see the edge). Same event as the real-include
+; branch below.
+       (pprogn
+        (if (eq (f-get-global 'raw-proof-format state) :structured)
+            (fms "(:INCLUDE-BOOK-EDGE :BOOK ~x0 :PARENT ~x1)~%"
+                 (list (cons #\0 familiar-name)
+                       (cons #\1 active-book-name))
+                 (proofs-co state) state nil)
+          state)
+        (stop-redundant-event ctx state)))
       (t
        (let ((wrld2 (global-set 'include-book-path
                                 (cons full-book-name old-include-book-path)
                                 wrld1)))
          (pprogn
+; TRACE-LOG[emit/include-book-edge]: fork-batch item 6 (2026-08-06) — the
+; include GRAPH edge, real-include branch: :BOOK the included book's
+; familiar name, :PARENT the including book's active name (NIL at top
+; level). Consumed by the Lean provenance gate on cross-book offers
+; (offers restricted to transitive includes, replacing corpus-order
+; accumulation).
+          (if (eq (f-get-global 'raw-proof-format state) :structured)
+              (fms "(:INCLUDE-BOOK-EDGE :BOOK ~x0 :PARENT ~x1)~%"
+                   (list (cons #\0 familiar-name)
+                         (cons #\1 active-book-name))
+                   (proofs-co state) state nil)
+            state)
           (set-w 'extension wrld2 state)
           (er-let* ((cert-obj-prelim
                      (include-book-cert-obj-prelim
