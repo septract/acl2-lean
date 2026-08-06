@@ -17826,25 +17826,7 @@ its attachment is ignored during proofs"))))
     (if (and unrewritten-test
              (geneqv-refinementp 'iff geneqv wrld)
              (equal unrewritten-test left))
-; TRACE-LOG[emit/if-finish/test-left-iff]: fork-batch item 5 (2026-08-06)
-; — the SILENT boolean-IF-wrapper collapse (must-be-true arm): the left
-; branch EQUALS the unrewritten test, which holds in this branch, so
-; under iff it becomes 'T with no rewrite and (previously) no record.
-; One of the literal-boundary normalizations the killed Lean-side tower
-; bridge re-implemented (drift tidy-up 2026-08-05); recorded, the PCE
-; literal composes from steps.
-        (progn$
-         #-acl2-loop-only
-         (when (consp *structured-rewrite-log*)
-           (push (list :rewrite-step
-                       :path (structured-rewrite-path)
-                       :rune '(:if-simplification nil)
-                       :origin 'if-finish/test-left-iff :equiv 'iff
-                       :lhs (structured-sublis-var-plain alist left)
-                       :rhs *t*)
-                 (cdr *structured-rewrite-log*)))
-         #+acl2-loop-only nil
-         (mv step-limit *t* (cons-tag-trees ts-ttree ttree)))
+        (mv step-limit *t* (cons-tag-trees ts-ttree ttree))
       (progn$
        ; TRACE-LOG[emit/if-window/begin]: if-left window (must-be-true arm)
        #-acl2-loop-only
@@ -17900,20 +17882,7 @@ its attachment is ignored during proofs"))))
           (if (and unrewritten-test
                    (geneqv-refinementp 'iff geneqv wrld)
                    (equal unrewritten-test left))
-; (Part of emit/if-finish/test-left-iff:) the general-arm twin of the
-; must-be-true collapse above — same silent move, same record.
-              (progn$
-               #-acl2-loop-only
-               (when (consp *structured-rewrite-log*)
-                 (push (list :rewrite-step
-                             :path (structured-rewrite-path)
-                             :rune '(:if-simplification nil)
-                             :origin 'if-finish/test-left-iff :equiv 'iff
-                             :lhs (structured-sublis-var-plain alist left)
-                             :rhs *t*)
-                       (cdr *structured-rewrite-log*)))
-               #+acl2-loop-only nil
-               (mv step-limit *t* ttree))
+              (mv step-limit *t* ttree)
             (progn$
              ; TRACE-LOG[emit/if-window/begin]: if-left window (general arm)
              #-acl2-loop-only
