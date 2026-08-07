@@ -3670,6 +3670,24 @@
 
              (cons *nil-fn-ts-entry* acc))
             (t
+; TRACE-LOG[emit/ta-subst]: DERIVED type-alist entry provenance
+; (user-approved 2026-08-07 — R1 rung B's expiry emission, also
+; HOW-MANY-RM-GENERAL's frontier): assume-true-false's substitution pass
+; transforms the bound entry FROM into the derived entry NEW by
+; replacing SUBST-OLD with SUBST-NEW (the equality being assumed) —
+; previously invisible, which forced the Lean side's bounded search over
+; candidate disequalities. :TS is the entry's (unchanged) type-set.
+; Construction-site recording, active only while the structured log is.
+             #-acl2-loop-only
+             (when (consp *structured-rewrite-log*)
+               (push (list :ta-subst :origin 'ta-subst
+                           :new equiv-call
+                           :from (caar type-alist)
+                           :ts (cadar type-alist)
+                           :subst-new new
+                           :subst-old old)
+                     (cdr *structured-rewrite-log*)))
+             #+acl2-loop-only nil
              (cons (list* equiv-call
                           (cadar type-alist)
 
