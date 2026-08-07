@@ -3678,17 +3678,19 @@
 ; previously invisible, which forced the Lean side's bounded search over
 ; candidate disequalities. :TS is the entry's (unchanged) type-set.
 ; Construction-site recording, active only while the structured log is.
-             #-acl2-loop-only
-             (when (consp *structured-rewrite-log*)
-               (push (list :ta-subst :origin 'ta-subst
-                           :new equiv-call
-                           :from (caar type-alist)
-                           :ts (cadar type-alist)
-                           :subst-new new
-                           :subst-old old)
-                     (cdr *structured-rewrite-log*)))
-             #+acl2-loop-only nil
-             (cons (list* equiv-call
+; prog2$-wrapped: ACL2's cond arms are strict (test expr) pairs.
+             (prog2$
+              #-acl2-loop-only
+              (when (consp *structured-rewrite-log*)
+                (push (list :ta-subst :origin 'ta-subst
+                            :new equiv-call
+                            :from (caar type-alist)
+                            :ts (cadar type-alist)
+                            :subst-new new
+                            :subst-old old)
+                      (cdr *structured-rewrite-log*)))
+              #+acl2-loop-only nil
+              (cons (list* equiv-call
                           (cadar type-alist)
 
 ; Note on Tracking Equivalence Runes: If we ever give runic names to the
@@ -3703,7 +3705,7 @@
 
                           (puffert
                            (cons-tag-trees (cddar type-alist) ttree)))
-                   acc)))))
+                   acc))))))
         (t (cons (car type-alist) acc))))))))
 
 (defun subst-type-alist (new old equiv ttree type-alist)
