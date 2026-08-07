@@ -18388,14 +18388,33 @@ its attachment is ignored during proofs"))))
          #-acl2-loop-only
          (when (and (consp *structured-rewrite-log*)
                     t)
-           (push (list :rewrite-step
-                       :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
-                       :rune '(:type-alist nil)
-                       :origin 'equal/type-alist-nil :equiv 'equal
-                       :lhs (fcons-term* 'equal lhs rhs)
-                       :rhs *nil*
-                       :ta-runes (all-runes-in-ttree ttree-lookup nil))
-                 (cdr *structured-rewrite-log*)))
+; (Part of emit/equal/type-alist-nil:) the verdict BASIS (R1 retirement
+; emission, user-approved 2026-08-07): assoc-equiv+ decided this verdict
+; from the CANONICAL representatives of both sides (walked through the
+; type-alist's equality equations) plus THE ONE bound disequality entry
+; on the canons — recompute the same lookup deterministically here and
+; record all three, so the Lean side's equation-closure SEARCH becomes a
+; directed check toward recorded targets. :TA-ENTRY is the entry's term
+; (NIL when the verdict came from the quotep/canon-collapse shortcuts,
+; which need no entry).
+           (mv-let (occursp1 canonicalp1 canon1 ttree1)
+             (canonical-representative 'equal lhs type-alist)
+             (declare (ignore occursp1 canonicalp1 ttree1))
+             (mv-let (occursp2 canonicalp2 canon2 ttree2)
+               (canonical-representative 'equal rhs type-alist)
+               (declare (ignore occursp2 canonicalp2 ttree2))
+               (let ((entry (assoc-equiv 'equal canon1 canon2 type-alist)))
+                 (push (list :rewrite-step
+                             :path (structured-rewrite-path) ; congruence position; see structured-rewrite-path
+                             :rune '(:type-alist nil)
+                             :origin 'equal/type-alist-nil :equiv 'equal
+                             :lhs (fcons-term* 'equal lhs rhs)
+                             :rhs *nil*
+                             :canon1 canon1
+                             :canon2 canon2
+                             :ta-entry (and entry (car entry))
+                             :ta-runes (all-runes-in-ttree ttree-lookup nil))
+                       (cdr *structured-rewrite-log*))))))
          #+acl2-loop-only nil
          (mv step-limit *nil* (cons-tag-trees ttree-lookup ttree))))
        (t
