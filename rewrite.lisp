@@ -18635,9 +18635,11 @@ its attachment is ignored during proofs"))))
                              #-acl2-loop-only (structured-window-end 'equal-cars)
                              #+acl2-loop-only nil
                              (mv step-limit swx swt))))
-                   (rewrite-entry (rewrite-equal
-                                   (car cars)
-                                   (cadr cars)
+                   (sl-let
+                    (dec-val dec-ttree)
+                    (rewrite-entry (rewrite-equal
+                                    (car cars)
+                                    (cadr cars)
 
 ; We considered an alternative to adding the lhs-ancestors and rhs-ancestors
 ; arguments, namely adding a flag saying whether we could move into this branch
@@ -18656,12 +18658,38 @@ its attachment is ignored during proofs"))))
 ;                                (cdr (fn x)))
 ;                          (fn x)))))
 
-                                   (cons lhs lhs-ancestors)
-                                   (cons rhs rhs-ancestors))
-                                  :obj nil ; ignored
-                                  :geneqv nil ; ignored
-                                  :pequiv-info nil ; ignored
-                                  :ttree ttree0))
+                                    (cons lhs lhs-ancestors)
+                                    (cons rhs rhs-ancestors))
+                                   :obj nil ; ignored
+                                   :geneqv nil ; ignored
+                                   :pequiv-info nil ; ignored
+                                   :ttree ttree0)
+                    (progn$
+                     ; TRACE-LOG[emit/equal/cars-decision]: fork-batch item A
+                     ; (final close-out, user-approved 2026-08-09): the
+                     ; rewrite-equal component-descent DECISION — the
+                     ; recursive rewrite-equal's verdict on the
+                     ; window-rewritten CAR components (:rhs *t*, *nil*, or
+                     ; the surviving equality term; verdict-only at this
+                     ; granularity — the recursion's internals are not
+                     ; windowed). :RUNES is the verdict ttree's rune set
+                     ; (cumulative — includes the incoming ttree, same
+                     ; caveat as marker :TA-RUNES). Previously entirely
+                     ; silent: the replay could not know how ACL2 concluded
+                     ; the phase (HOW-MANY-BAD-PAIRS-BNEXT's frontier).
+                     #-acl2-loop-only
+                     (when (consp *structured-rewrite-log*)
+                       (push (list :rewrite-step
+                                   :path (structured-rewrite-path)
+                                   :rune '(:equal-descent nil)
+                                   :origin 'equal/cars-decision :equiv 'equal
+                                   :lhs (fcons-term* 'equal (car cars)
+                                                     (cadr cars))
+                                   :rhs dec-val
+                                   :runes (all-runes-in-ttree dec-ttree nil))
+                             (cdr *structured-rewrite-log*)))
+                     #+acl2-loop-only nil
+                     (mv step-limit dec-val dec-ttree))))
 
 ; Note that we pass ttree+ (which includes ttree) into the rewrite of
 ; the car equality and getting back new-ttree.  We will pass new-ttree
@@ -18697,15 +18725,36 @@ its attachment is ignored during proofs"))))
                                 #-acl2-loop-only (structured-window-end 'equal-cdrs)
                                 #+acl2-loop-only nil
                                 (mv step-limit swx swt))))
-                      (rewrite-entry (rewrite-equal
-                                      (car cdrs)
-                                      (cadr cdrs)
-                                      (cons lhs lhs-ancestors)
-                                      (cons rhs rhs-ancestors))
-                                     :obj nil ; ignored
-                                     :geneqv nil ; ignored
-                                     :pequiv-info nil ; ignored
-                                     :ttree ttree0))
+                      (sl-let
+                       (dec-val dec-ttree)
+                       (rewrite-entry (rewrite-equal
+                                       (car cdrs)
+                                       (cadr cdrs)
+                                       (cons lhs lhs-ancestors)
+                                       (cons rhs rhs-ancestors))
+                                      :obj nil ; ignored
+                                      :geneqv nil ; ignored
+                                      :pequiv-info nil ; ignored
+                                      :ttree ttree0)
+                       (progn$
+                        ; TRACE-LOG[emit/equal/cdrs-decision]: fork-batch item A
+                        ; (final close-out, user-approved 2026-08-09): the CDR
+                        ; component decision, positive side (cars resolved *t*).
+                        ; Same record shape and caveats as
+                        ; emit/equal/cars-decision above.
+                        #-acl2-loop-only
+                        (when (consp *structured-rewrite-log*)
+                          (push (list :rewrite-step
+                                      :path (structured-rewrite-path)
+                                      :rune '(:equal-descent nil)
+                                      :origin 'equal/cdrs-decision :equiv 'equal
+                                      :lhs (fcons-term* 'equal (car cdrs)
+                                                        (cadr cdrs))
+                                      :rhs dec-val
+                                      :runes (all-runes-in-ttree dec-ttree nil))
+                                (cdr *structured-rewrite-log*)))
+                        #+acl2-loop-only nil
+                        (mv step-limit dec-val dec-ttree))))
                      (cond ((equal equal-cdrs *t*)
                             (mv step-limit *t* (puffert new-ttree)))
                            ((equal equal-cdrs *nil*)
@@ -18768,16 +18817,40 @@ its attachment is ignored during proofs"))))
                                          #-acl2-loop-only (structured-window-end 'equal-cdrs)
                                          #+acl2-loop-only nil
                                          (mv step-limit swx swt))))
-                               (rewrite-entry
-                                (rewrite-equal
-                                 (car cdrs)
-                                 (cadr cdrs)
-                                 (cons lhs lhs-ancestors)
-                                 (cons rhs rhs-ancestors))
-                                :obj nil ; ignored
-                                :geneqv nil ; ignored
-                                :pequiv-info nil ; ignored
-                                :ttree ttree0))
+                               (sl-let
+                                (dec-val dec-ttree)
+                                (rewrite-entry
+                                 (rewrite-equal
+                                  (car cdrs)
+                                  (cadr cdrs)
+                                  (cons lhs lhs-ancestors)
+                                  (cons rhs rhs-ancestors))
+                                 :obj nil ; ignored
+                                 :geneqv nil ; ignored
+                                 :pequiv-info nil ; ignored
+                                 :ttree ttree0)
+                                (progn$
+                                 ; TRACE-LOG[emit/equal/cdrs-decision]: fork-batch
+                                 ; item A (final close-out, user-approved
+                                 ; 2026-08-09): the CDR component decision,
+                                 ; negative side (cars unresolved — only a *nil*
+                                 ; verdict is usable here). Same record shape and
+                                 ; caveats as emit/equal/cars-decision above.
+                                 #-acl2-loop-only
+                                 (when (consp *structured-rewrite-log*)
+                                   (push (list :rewrite-step
+                                               :path (structured-rewrite-path)
+                                               :rune '(:equal-descent nil)
+                                               :origin 'equal/cdrs-decision
+                                               :equiv 'equal
+                                               :lhs (fcons-term* 'equal (car cdrs)
+                                                                 (cadr cdrs))
+                                               :rhs dec-val
+                                               :runes (all-runes-in-ttree
+                                                       dec-ttree nil))
+                                         (cdr *structured-rewrite-log*)))
+                                 #+acl2-loop-only nil
+                                 (mv step-limit dec-val dec-ttree))))
                               (cond ((equal equal-cdrs *nil*)
                                      (mv step-limit *nil* (puffert new-ttree)))
                                     (t
