@@ -6499,11 +6499,22 @@
           (mv (cons lit cl)
               (cons pt pt-lst)
               ttree))
-         ((null pt)
-          (mv cl pt-lst ttree))
-         (t (mv cl
-                (add-literal-and-pt1 cl0 pt cl pt-lst)
-                ttree)))))))
+         (t
+; TRACE-LOG[emit/dedup-drop]: fork-batch item E, second site (2026-08-10):
+; add-literal-and-pt's OWN member-term drop — the duplicate-drop the
+; subst-equiv-and-maybe-delete-lit rebuild path takes (the dedupSkipClose
+; witness, HOW-MANY-SMALLER-BNEXT *1/4.5), which bypasses add-literal's
+; branch. Same record shape and origin as add-literal's site above.
+          #-acl2-loop-only
+          (when (consp *structured-rewrite-log*)
+            (push (list :dedup-drop :origin 'dedup-drop :lit lit)
+                  (cdr *structured-rewrite-log*)))
+          (cond
+           ((null pt)
+            (mv cl pt-lst ttree))
+           (t (mv cl
+                  (add-literal-and-pt1 cl0 pt cl pt-lst)
+                  ttree)))))))))
 
 (defun add-binding-to-tag-tree (var term ttree)
 
