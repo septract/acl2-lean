@@ -1382,13 +1382,28 @@
 ; Deterministic read-off: upstream tau is deliberately ttree-free, so the
 ; slice (not a fired-rune list) is the recordable basis; exact-fired
 ; threading remains a later tightening if the slice proves too coarse.
+; PREDEFINED (ground-zero) fns contribute their tau-pair IDENTITY only
+; (:GZ T, no implicants/sigs): their tau data is world-constant and lives
+; Lean-side as ground-zero knowledge, and printing the gz implicant
+; universe through the cited-symbol collector dragged ~90 gz predicate
+; cliques into every world (the recapture-drift diagnosis, endgame arc
+; 2026-08-10 — same remedy class as the fertilize :DELETE-LIT-FLG
+; normalization in waterfall-msg1). Fail-closed: a leaf that needs a gz
+; implicant the Lean side lacks hard-fails at its use site.
 #-acl2-loop-only
 (defun structured-tau-basis (fns wrld)
   (cond ((endp fns) nil)
         (t (let ((tau-pair (getpropc (car fns) 'tau-pair nil wrld))
                  (sigs1 (getpropc (car fns) 'signature-rules-form-1 nil wrld))
                  (sigs2 (getpropc (car fns) 'signature-rules-form-2 nil wrld)))
-             (cond ((or tau-pair sigs1 sigs2)
+             (cond ((not (or tau-pair sigs1 sigs2))
+                    (structured-tau-basis (cdr fns) wrld))
+                   ((getpropc (car fns) 'predefined nil wrld)
+                    (cons (list :fn (car fns)
+                                :tau-pair tau-pair
+                                :gz t)
+                          (structured-tau-basis (cdr fns) wrld)))
+                   (t
                     (cons (list :fn (car fns)
                                 :tau-pair tau-pair
                                 :pos-implicants
@@ -1397,8 +1412,7 @@
                                 (getpropc (car fns) 'neg-implicants nil wrld)
                                 :sigs1 sigs1
                                 :sigs2 sigs2)
-                          (structured-tau-basis (cdr fns) wrld)))
-                   (t (structured-tau-basis (cdr fns) wrld)))))))
+                          (structured-tau-basis (cdr fns) wrld))))))))
 
 (defun tau-clausep (clause ens wrld state calist)
 
