@@ -151,7 +151,20 @@
               (ffn-symb-p (fargn lit 1) 'integerp)
               (member-equal (fcons-term 'rationalp (fargs (fargn lit 1))) cl))
          *true-clause*)
-        ((member-term lit cl) cl)
+        ((member-term lit cl)
+; TRACE-LOG[emit/dedup-drop]: fork-batch item E (2026-08-10, the close-out
+; audit's D1 remedy): the add-literal DUPLICATE drop — the incoming literal
+; is already among the clause's literals, so the clause is returned
+; unchanged. Until now silent: the Lean replay's dedup-skip arm INFERRED
+; the drop from the clause shape (dedupSkipClose, held under expiry); with
+; the drop recorded the arm becomes a read-off. Scope: ONLY this general
+; member-term branch — the variablep member-term sibling above stays
+; silent until a corpus witness occurs.
+         #-acl2-loop-only
+         (when (consp *structured-rewrite-log*)
+           (push (list :dedup-drop :origin 'dedup-drop :lit lit)
+                 (cdr *structured-rewrite-log*)))
+         cl)
         (at-end-flg (append cl (list lit)))
         (t (cons lit cl))))
 

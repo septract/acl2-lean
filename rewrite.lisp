@@ -127,6 +127,21 @@
 (defvar *structured-termination-clauses* nil
   "When non-nil, (names . raw-measure-clauses) for the clique being admitted.")
 
+; TRACE-LOG[infra/termination-runes]: stash for the admission's cited rune set
+; (fork-batch item H, user-ruled per-admission 2026-08-10) — written by
+; prove-termination (defuns.lisp) at its success exits with
+; (all-runes-in-ttree <admission ttree> nil), read by emit-structured-defuns
+; alongside the clause stash (same names-match guard, same consume-once
+; lifecycle) and emitted as the :DEFUN event's :TERMINATION-RUNES field.
+; PER-ADMISSION granularity: one set for the whole clique (the ttree is not
+; per-clause). The include-book re-emission path never sets it (no admission
+; is re-run), so the field's absence marks the channel as absent.
+#-acl2-loop-only
+(defvar *structured-termination-runes* nil
+  "When non-nil, (names . admission-rune-set) for the clique being admitted.
+   The names cons distinguishes a SET-but-empty rune set (admission cited no
+   rules) from an unset stash (no admission ran).")
+
 ; TRACE-LOG[infra/rewrite-depth]: nesting depth guarding which rewrite-steps are logged
 ; (0 = literal level → logged; >0 = inside an unfold/RHS expansion → folded into the outer step).
 #-acl2-loop-only

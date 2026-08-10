@@ -1280,7 +1280,16 @@
 ; If the io? above did not print because 'event is inhibited, then col is nil.
 ; Just to keep ourselves sane, we will set it to 0.
 
-             (value (cons (or col 0) cl-set-ttree)))
+; TRACE-LOG[infra/termination-runes]: (write site 1 — the trivial-admission
+; exit: clean-up-clause-set closed every clause, so cl-set-ttree IS the whole
+; admission ttree) stash the admission's cited rune set for the structured
+; :DEFUN emission (fork-batch item H).
+             (prog2$
+              #-acl2-loop-only
+              (setq *structured-termination-runes*
+                    (cons names (all-runes-in-ttree cl-set-ttree nil)))
+              #+acl2-loop-only nil
+              (value (cons (or col 0) cl-set-ttree))))
             (t
              (mv-let
               (erp ttree state)
@@ -1352,11 +1361,22 @@
                                   :default-bindings ((col 0)))
                              (pprogn
                               (increment-timer 'print-time state)
-                              (value
-                               (cons
-                                (or col 0)
-                                (cons-tag-trees
-                                 cl-set-ttree ttree)))))))))))))))))))
+; TRACE-LOG[infra/termination-runes]: (write site 2 — the proved exit) the
+; accumulated admission ttree (simplification + measure-theorem proof); stash
+; its rune set for the structured :DEFUN emission (fork-batch item H).
+                              (prog2$
+                               #-acl2-loop-only
+                               (setq *structured-termination-runes*
+                                     (cons names
+                                           (all-runes-in-ttree
+                                            (cons-tag-trees cl-set-ttree ttree)
+                                            nil)))
+                               #+acl2-loop-only nil
+                               (value
+                                (cons
+                                 (or col 0)
+                                 (cons-tag-trees
+                                  cl-set-ttree ttree))))))))))))))))))))
 
 ; When we succeed in proving termination, we will store the
 ; justification properties.
@@ -12034,8 +12054,10 @@
 ; TRACE-LOG[infra/termination-clauses]: consume-once — the stash dies with the
 ; clique whose emission it served (a stale stash could otherwise attach a
 ; previous admission's obligations to a redefinition under skipped proofs).
+; The rune stash (item H) shares the lifecycle.
     (prog2$
-     #-acl2-loop-only (setq *structured-termination-clauses* nil)
+     #-acl2-loop-only (setq *structured-termination-clauses* nil
+                            *structured-termination-runes* nil)
      #+acl2-loop-only nil
      state))
    (t (let* ((name (car names))
@@ -12055,6 +12077,22 @@
                          (member-eq name (car *structured-termination-clauses*))
                          (cdr *structured-termination-clauses*))
                     #+acl2-loop-only nil)
+; TRACE-LOG[infra/termination-runes]: (read site — item H) the admission's
+; cited rune set, read under the SAME names-match guard as the clause stash;
+; emitted as :TERMINATION-RUNES only when the clause channel itself emits
+; (so an include-book re-emission — which recomputes clauses with no
+; admission ttree — carries no rune field: channel absence is structural).
+                   (term-runes
+                    #-acl2-loop-only
+                    (and just
+                         (consp *structured-termination-clauses*)
+                         (member-eq name (car *structured-termination-clauses*))
+                         (consp *structured-termination-runes*)
+                         (member-eq name (car *structured-termination-runes*))
+; a one-element BOX so a SET-but-empty rune set still emits (as NIL) —
+; channel presence is data the Lean side gates on
+                         (list (cdr *structured-termination-runes*)))
+                    #+acl2-loop-only nil)
                    (state
                     (fms "(:DEFUN ~x0 :FORMALS ~x1 :BODY ~x2~@3~@4~@5)~%"
                          (list (cons #\0 name)
@@ -12068,8 +12106,15 @@
                                             ""))
                                (cons #\4 (cond
                                           ((and just term-clauses)
-                                           (msg " :TERMINATION-CLAUSES ~x0"
-                                                term-clauses))
+; (part of the emit/defun event above) item H: the admission's cited rune set
+; travels WITH the termination clauses when the rune stash covers this name
+; (never on the include-book recompute path below — no admission ttree there).
+                                           (msg " :TERMINATION-CLAUSES ~x0~@1"
+                                                term-clauses
+                                                (if term-runes
+                                                    (msg " :TERMINATION-RUNES ~x0"
+                                                         (car term-runes))
+                                                  "")))
 ; (part of the emit/defun event above) an INCLUDE-BOOK'd recursive defun
 ; re-emits its justification but ACL2 does not re-run admission, so no
 ; termination clauses exist to stash. RECOMPUTE them here with the same

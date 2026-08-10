@@ -1374,6 +1374,32 @@
                    '(:executable-counterpart tau-system)
                    nil))
 
+; TRACE-LOG[infra/tau-basis]: helper for the emit/preprocess/tau verdict basis
+; (fork-batch item I, user-ruled 2026-08-10: the FN-RESTRICTED TAU-DATABASE
+; SLICE). For each fn symbol of the proved clause that has tau data, the RAW
+; database slice — tau-pair, pos/neg-implicants, form-1/2 signature rules —
+; verbatim from the world, lexorder-sorted by fn for stable output.
+; Deterministic read-off: upstream tau is deliberately ttree-free, so the
+; slice (not a fired-rune list) is the recordable basis; exact-fired
+; threading remains a later tightening if the slice proves too coarse.
+#-acl2-loop-only
+(defun structured-tau-basis (fns wrld)
+  (cond ((endp fns) nil)
+        (t (let ((tau-pair (getpropc (car fns) 'tau-pair nil wrld))
+                 (sigs1 (getpropc (car fns) 'signature-rules-form-1 nil wrld))
+                 (sigs2 (getpropc (car fns) 'signature-rules-form-2 nil wrld)))
+             (cond ((or tau-pair sigs1 sigs2)
+                    (cons (list :fn (car fns)
+                                :tau-pair tau-pair
+                                :pos-implicants
+                                (getpropc (car fns) 'pos-implicants nil wrld)
+                                :neg-implicants
+                                (getpropc (car fns) 'neg-implicants nil wrld)
+                                :sigs1 sigs1
+                                :sigs2 sigs2)
+                          (structured-tau-basis (cdr fns) wrld)))
+                   (t (structured-tau-basis (cdr fns) wrld)))))))
+
 (defun tau-clausep (clause ens wrld state calist)
 
 ; This function returns (mv flg ttree), where if flg is t then clause is true.
@@ -1416,7 +1442,11 @@
 ; TRACE-LOG[emit/preprocess/tau]: discharge node — the tau decision procedure
 ; (tau-clause1p: per-literal tau-assume of the negation until contradiction/must-be-
 ; false) proved the clause; verdict-only upstream (*tau-ttree*), recorded here so the
-; PROVED leaf carries its discharge mechanism.
+; PROVED leaf carries its discharge mechanism. Since fork-batch item I
+; (user-ruled 2026-08-10) the record also carries :TAU-BASIS — the
+; fn-restricted tau-database slice (structured-tau-basis above) for exactly
+; this clause's fn symbols — so the Lean DP consumer takes the slice's
+; rules' instances as premises (read-off, not matcher selection).
             (prog2$
              #-acl2-loop-only
              (when (consp *structured-rewrite-log*)
@@ -1424,7 +1454,11 @@
                            :rune '(:executable-counterpart tau-system)
                            :origin 'preprocess/tau :equiv 'equal
                            :lhs (disjoin clause)
-                           :rhs *t*)
+                           :rhs *t*
+                           :tau-basis
+                           (structured-tau-basis
+                            (merge-sort-lexorder (all-fnnames-lst clause))
+                            wrld))
                      (cdr *structured-rewrite-log*)))
              #+acl2-loop-only nil
              (mv t *tau-ttree* calist)))
