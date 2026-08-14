@@ -18455,6 +18455,13 @@ its attachment is ignored during proofs"))))
               ((ts= ts-equality *ts-t*)
                (progn$
                 ; TRACE-LOG[emit/equal/type-set-true]: rewrite-step (:type-set-equality) in rewrite-equal [true]
+                ; :LHS-TS/:RHS-TS (R2 fold-in scout, 2026-08-14) are the two
+                ; operand type-sets type-set-equal actually intersected —
+                ; ACL2's DERIVATION, which this record used to omit entirely
+                ; (unlike the recognizer records, which carry :TYPESET).
+                ; CLASSIFY-POS is the driving case: (EQUAL N '0) collapses
+                ; because N's in-context type-set is *ts-positive-integer*
+                ; and '0's is *ts-zero*.
                 #-acl2-loop-only
                 (when (and (consp *structured-rewrite-log*)
                            t)
@@ -18463,13 +18470,17 @@ its attachment is ignored during proofs"))))
                               :rune '(:type-set-equality nil)
                               :origin 'equal/type-set-true :equiv 'equal
                               :lhs (fcons-term* 'equal lhs rhs)
-                              :rhs *t*)
+                              :rhs *t*
+                              :lhs-ts ts-lhs
+                              :rhs-ts ts-rhs)
                         (cdr *structured-rewrite-log*)))
                 #+acl2-loop-only nil
                 (mv step-limit *t* ttree-equality)))
               ((ts= ts-equality *ts-nil*)
                (progn$
                 ; TRACE-LOG[emit/equal/type-set-nil]: rewrite-step (:type-set-equality) in rewrite-equal [nil]
+                ; :LHS-TS/:RHS-TS as in the [true] case above — the operand
+                ; type-sets type-set-equal intersected to reach this verdict.
                 #-acl2-loop-only
                 (when (and (consp *structured-rewrite-log*)
                            t)
@@ -18478,7 +18489,9 @@ its attachment is ignored during proofs"))))
                               :rune '(:type-set-equality nil)
                               :origin 'equal/type-set-nil :equiv 'equal
                               :lhs (fcons-term* 'equal lhs rhs)
-                              :rhs *nil*)
+                              :rhs *nil*
+                              :lhs-ts ts-lhs
+                              :rhs-ts ts-rhs)
                         (cdr *structured-rewrite-log*)))
                 #+acl2-loop-only nil
                 (mv step-limit *nil* ttree-equality)))

@@ -5598,6 +5598,10 @@
 ; PREPENDS user :type-prescription defthm rules, so (car tps) at end-of-book
 ; snapshot time can be a user rule about the fn (audit 2026-07-19 F1); the
 ; admission-time emitter runs before any such defthm and is immune.
+; This is a ONE-OF-N filter and N can exceed 1 (BINARY-APPEND stores both
+; its weak definitional rule and the boot-strap conditional
+; TRUE-LISTP-APPEND); the N-1 it drops are no longer lost — the emitter
+; below carries all of them in :ALL-TPS (infra/tp-all, defuns.lisp).
 (defun gz-definitional-tp (name tps)
   (declare (xargs :mode :program))
   (cond ((endp tps) nil)
@@ -5648,7 +5652,12 @@
 ; boot world's computed type-prescription alongside each snapshot :DEFUN
 ; (same event shape as the admission-time emit in defuns.lisp, so the parser
 ; and the tp: hypothesis machinery consume both identically; generalize-clause
-; restrictions cite these runes, e.g. type-prescription:EVENS).
+; restrictions cite these runes, e.g. type-prescription:EVENS).  :LEAVES
+; carries the CONTEXT-REFINED entries
+; (leaf-term type-set ruling-tests type-alist subterm-verdicts) and :ALL-TPS
+; every stored rule as (rune hyps basic-ts corollary) — both from the shared
+; defuns.lisp collectors (infra/tp-leaves, infra/tp-all); the :COROLLARY /
+; :BASICTS fields still carry the DEFINITIONAL rule selected below.
              (tps (getpropc name 'type-prescriptions nil wrld))
 ; Select the DEFINITIONAL type-prescription by its rune's base symbol
 ; (= the fn name), NOT (car tps): add-type-prescription-rule PREPENDS
@@ -5667,7 +5676,11 @@
                          (basic-ts (access type-prescription tp :basic-ts))
                          (leaves (tp-collect-if-leaves (body name t wrld)
                                                        (ens state)
-                                                       wrld)))
+                                                       wrld))
+; (part of emit/type-prescription:) ALL stored rules, not just the
+; definitional one selected above — the conditional strengthenings this
+; snapshot used to discard (infra/gz-tp-select's one-of-N filter).
+                         (all-tps (tp-all-entries tps (ens state) wrld nil)))
                     ; one ~x s-expression, same rationale as the :DEFUN above
                     (fms "~x0~%"
                          (list (cons #\0
@@ -5676,7 +5689,8 @@
                                            (access type-prescription tp
                                                    :corollary)
                                            :basicts basic-ts
-                                           :leaves leaves)))
+                                           :leaves leaves
+                                           :all-tps all-tps)))
                          (proofs-co state) state nil))
                 state)))
         (emit-ground-zero-defuns (cdr entries) state)))))
