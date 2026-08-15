@@ -5256,6 +5256,18 @@ its attachment is ignored during proofs"))))
                  ; find-rewriting-equivalence selected (geneqv-refinement guaranteed there);
                  ; the earlier hardcoded 'equal under-reported R-steps (equisort-r6 audit /
                  ; fork-batch item 3, the R-lane prerequisite).
+                 ; :cr-rune is the LICENSING congruence/equivalence rune —
+                 ; the very rune find-rewriting-equivalence computed
+                 ; (rewrite.lisp:5021, geneqv-refinementp) and pushed into
+                 ; the ttree, recomputed here from the same values because
+                 ; it is not returned.  Without it the replay can only
+                 ; anchor on the ENCLOSING step's cumulative :RUNES set,
+                 ; which is weaker than the BUG-023 per-step discipline
+                 ; (G1 design brief §2; two consumers — class D's
+                 ; step-level anchor and the solidify-site tightening).
+                 ; A tightening, not a prerequisite: NIL means no
+                 ; refinement rune (the flambda case), and the consumer
+                 ; must fail closed rather than fall back silently.
                  #-acl2-loop-only
                  (when (and (consp *structured-rewrite-log*)
                             (not (equal term (fargn eterm 2))))
@@ -5266,6 +5278,9 @@ its attachment is ignored during proofs"))))
                                :lhs term
                                :rhs (fargn eterm 2)
                                :equiv-term eterm
+                               :cr-rune (and (not (flambdap (ffn-symb eterm)))
+                                             (geneqv-refinementp (ffn-symb eterm)
+                                                                 geneqv wrld))
                                :parents (tagged-objects 'pt ttree))
                          (cdr *structured-rewrite-log*)))
                  #+acl2-loop-only nil
@@ -5555,6 +5570,31 @@ its attachment is ignored during proofs"))))
                                  terms-to-be-ignored-by-rewrite))
         (t nil)))
 
+; TRACE-LOG[infra/recognizer-arg-leaves]: the per-branch DERIVATION behind a
+; recognizer verdict whose ARGUMENT is an IF term.  The emitted :TYPESET of a
+; recognizer step is ACL2's verdict for the whole argument; when that argument
+; is an IF, the verdict is the UNION over branches that type-set-rec's own 'if
+; case computed, and the union alone is not replayable — the replay has to
+; case-split the IF and know each branch's verdict (T1+2 sprint Tier-1 item 2:
+; the COUNT-DOWN / MY-EVENP / CD2 terminations, where the argument is an
+; inlined NFIX body (IF (INTEGERP N) (IF (< N '0) '0 N) '0) with no type
+; hypothesis in sight).  We reuse the infra/tp-leaves collector
+; (type-set-b.lisp) — same walk, same assume-true-false-rec context
+; refinement — run under the REWRITER'S OWN type-alist, so each leaf's
+; ruling tests, derived type-alist and verdict are ACL2's, in context.
+; Scoped to IF arguments: for any other argument the collector would return a
+; single leaf that merely repeats the existing :TYPESET field while dragging
+; the whole ambient type-alist into every recognizer record (the item-I
+; recapture incident's payload lesson).
+(defun recognizer-arg-leaves (arg type-alist ens wrld)
+  (declare (xargs :mode :program))
+  (cond ((and (nvariablep arg)
+              (not (fquotep arg))
+              (eq (ffn-symb arg) 'if)
+              (= (length arg) 4))
+         (tp-collect-if-leaves1 arg nil type-alist nil ens wrld))
+        (t nil)))
+
 (defun rewrite-recognizer (recog-tuple arg type-alist ens force-flg wrld ttree
                            pot-lst pt)
 
@@ -5598,6 +5638,12 @@ its attachment is ignored during proofs"))))
                             ; replay data-driven off emitted content.
                             :falsets (access recognizer-tuple recog-tuple :false-ts)
                             :strongp (access recognizer-tuple recog-tuple :strongp)
+                            ; T1+2 sprint fork round-trip 2: the per-branch
+                            ; derivation when ARG is an IF (see
+                            ; infra/recognizer-arg-leaves above); NIL — hence
+                            ; absent-in-effect — for every other argument.
+                            :arg-leaves (recognizer-arg-leaves arg type-alist
+                                                               ens wrld)
                             :runes (all-runes-in-ttree ttree+ nil)
                             :parents (tagged-objects 'pt ttree+))
                       (cdr *structured-rewrite-log*)))
@@ -5642,6 +5688,9 @@ its attachment is ignored during proofs"))))
                      ; recognizer/true twin above).
                      :falsets (access recognizer-tuple recog-tuple :false-ts)
                      :strongp (access recognizer-tuple recog-tuple :strongp)
+                     ; the per-branch derivation for an IF argument; see the
+                     ; recognizer/true twin above.
+                     :arg-leaves (recognizer-arg-leaves arg type-alist ens wrld)
                      :runes (all-runes-in-ttree ttree+ nil)
                      :parents (tagged-objects 'pt ttree+))
                (cdr *structured-rewrite-log*)))

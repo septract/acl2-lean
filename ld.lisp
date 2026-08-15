@@ -5655,8 +5655,10 @@
 ; restrictions cite these runes, e.g. type-prescription:EVENS).  :LEAVES
 ; carries the CONTEXT-REFINED entries
 ; (leaf-term type-set ruling-tests type-alist subterm-verdicts) and :ALL-TPS
-; every stored rule as (rune hyps basic-ts corollary) — both from the shared
-; defuns.lisp collectors (infra/tp-leaves, infra/tp-all); the :COROLLARY /
+; every stored rule as (rune hyps basic-ts corollary term leaves), each
+; entry's leaves computed under that rule's OWN hypotheses — from the
+; shared collectors (infra/tp-leaves in type-set-b.lisp, infra/tp-all in
+; defuns.lisp); the :COROLLARY /
 ; :BASICTS fields still carry the DEFINITIONAL rule selected below.
              (tps (getpropc name 'type-prescriptions nil wrld))
 ; Select the DEFINITIONAL type-prescription by its rune's base symbol
@@ -5680,7 +5682,9 @@
 ; (part of emit/type-prescription:) ALL stored rules, not just the
 ; definitional one selected above — the conditional strengthenings this
 ; snapshot used to discard (infra/gz-tp-select's one-of-N filter).
-                         (all-tps (tp-all-entries tps (ens state) wrld nil)))
+                         (all-tps (tp-all-entries tps (body name t wrld)
+                                                  (formals name wrld)
+                                                  (ens state) wrld nil)))
                     ; one ~x s-expression, same rationale as the :DEFUN above
                     (fms "~x0~%"
                          (list (cons #\0

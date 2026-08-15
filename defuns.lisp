@@ -12011,145 +12011,6 @@
                  (car pair)
                  state))
 
-; TRACE-LOG[infra/tp-leaves]: helper for the :TYPE-PRESCRIPTION proof data emitted below —
-; collects one entry per IF-leaf of an IF-normalized body, each
-; (leaf-term type-set ruling-tests type-alist subterm-verdicts).
-; The walk MIRRORS type-set-rec's own 'if case (type-set-b.lisp:8246):
-; assume-true-false-rec on the test yields the true-/false-type-alist and
-; each branch is walked UNDER it, so a leaf's verdict is the one ACL2
-; computes IN CONTEXT (fork-emission audit 2026-08-13 GAP-1: INTEGER-ABS's
-; (UNARY-- X) leaf goes 127 -> 6 under ((INTEGERP X) (< X '0))).  Fields:
-;   ruling-tests    — the IF tests governing the leaf, outermost first
-;                     (negated on a false branch): the leaf's ADDRESS, which
-;                     also distinguishes two identical leaf terms in
-;                     different branches.
-;   type-alist      — ACL2's OWN derivation from those tests (entries
-;                     (term type-set), ttrees stripped), emitted VERBATIM
-;                     WITH SHADOWING: lookup is assoc-equal, first hit wins.
-;                     Not re-derivable Lean-side; this is the load-bearing
-;                     datum (type facts come from ACL2, never inferred).
-;   subterm-verdicts — (subterm type-set) for each proper function-call
-;                     subterm of the leaf, outermost first, computed in the
-;                     SAME context (audit GAP-2: the primitives ACL2-COUNT's
-;                     leaves call — DENOMINATOR/NUMERATOR/REALPART/IMAGPART —
-;                     store no type-prescription rule at all, so ACL2's
-;                     per-OCCURRENCE verdict is the only type fact there is).
-;                     *ts-unknown* entries are dropped: they carry no fact.
-; A test that is BOTH must-be-true and must-be-false is ACL2's own
-; contradictory-context case; the branch below it is unreachable, and its
-; leaves are emitted with the type-set *ts-empty* (0) — ACL2's own encoding,
-; and the :VACUOUS marker the vacuous-branch device consumes.  Pruned
-; branches (must-be-true / must-be-false) are marked the same way rather
-; than dropped, so the emitted leaf set always covers the body's structure.
-
-(defun tp-strip-type-alist (ta acc)
-
-; Type-alist entries are (term ts . ttree); the ttree is a proof-tree object
-; that has no place in the emitted log (payload trim — the item-I recapture
-; incident).  Keep (term ts), preserving order (so shadowing is preserved).
-
-  (declare (xargs :guard t :mode :program))
-  (cond ((atom ta) (reverse acc))
-        (t (tp-strip-type-alist
-            (cdr ta)
-            (cons (list (car (car ta)) (cadr (car ta))) acc)))))
-
-(defun tp-subterm-verdicts (terms type-alist ens wrld acc)
-
-; ACL2's type-set verdict for each proper function-call subterm, in the
-; leaf's own context.  TERMS is a worklist, so the result (after the
-; caller's reverse) is outermost-first.
-
-  (declare (xargs :guard t :mode :program))
-  (cond
-   ((endp terms) acc)
-   ((or (variablep (car terms)) (fquotep (car terms)))
-    (tp-subterm-verdicts (cdr terms) type-alist ens wrld acc))
-   (t (mv-let (ts ttree)
-        (type-set (car terms)
-                  nil    ; force-flg
-                  nil    ; dwp
-                  type-alist ens wrld
-                  nil    ; ttree
-                  nil    ; pot-lst
-                  nil)   ; pt
-        (declare (ignore ttree))
-        (tp-subterm-verdicts
-         (append (fargs (car terms)) (cdr terms))
-         type-alist ens wrld
-         (if (ts= ts *ts-unknown*)
-             acc
-           (cons (list (car terms) ts) acc)))))))
-
-(defun tp-collect-if-leaves1 (body tests type-alist vacuousp ens wrld)
-  (declare (xargs :guard t :mode :program))
-  (cond
-   ((and (nvariablep body)
-         (not (fquotep body))
-         (eq (ffn-symb body) 'if)
-         (= (length body) 4))
-    (let ((tst (fargn body 1)))
-      (if vacuousp
-          (append (tp-collect-if-leaves1 (fargn body 2) (cons tst tests)
-                                         type-alist t ens wrld)
-                  (tp-collect-if-leaves1 (fargn body 3)
-                                         (cons (fcons-term* 'not tst) tests)
-                                         type-alist t ens wrld))
-        (mv-let (must-be-true must-be-false true-type-alist false-type-alist
-                              ttree)
-          (assume-true-false-rec tst
-                                 nil    ; xttree
-                                 nil    ; force-flg
-                                 nil    ; dwp
-                                 type-alist
-                                 nil    ; ancestors
-                                 ens wrld
-                                 nil    ; pot-lst
-                                 nil    ; pt
-                                 nil    ; ignore0
-                                 nil)   ; backchain-limit
-          (declare (ignore ttree))
-
-; MUST-BE-FALSE makes the true branch unreachable, MUST-BE-TRUE the false
-; one, and both together are ACL2's contradictory context (every leaf
-; below is unreachable).  A branch marked vacuous never consults its
-; type-alist, which is exactly the one assume-true-false-rec leaves
-; unreliable in that case.
-
-          (append
-           (tp-collect-if-leaves1 (fargn body 2) (cons tst tests)
-                                  true-type-alist
-                                  (and must-be-false t)
-                                  ens wrld)
-           (tp-collect-if-leaves1 (fargn body 3)
-                                  (cons (fcons-term* 'not tst) tests)
-                                  false-type-alist
-                                  (and must-be-true t)
-                                  ens wrld))))))
-   (vacuousp
-    (list (list body *ts-empty* (reverse tests) nil nil)))
-   (t (mv-let (ts ttree)
-        (type-set body
-                  nil    ; force-flg
-                  nil    ; dwp
-                  type-alist ens wrld
-                  nil    ; ttree
-                  nil    ; pot-lst
-                  nil)   ; pt
-        (declare (ignore ttree))
-        (list (list body
-                    ts
-                    (reverse tests)
-                    (tp-strip-type-alist type-alist nil)
-                    (if (or (variablep body) (fquotep body))
-                        nil
-                      (reverse (tp-subterm-verdicts (fargs body) type-alist
-                                                    ens wrld nil)))))))))
-
-(defun tp-collect-if-leaves (body ens wrld)
-  (declare (xargs :guard t :mode :program))
-  (tp-collect-if-leaves1 body nil nil nil ens wrld))
-
 ; TRACE-LOG[infra/tp-all]: the :ALL-TPS entries of the :TYPE-PRESCRIPTION
 ; events below — EVERY stored type-prescription of the fn as
 ; (rune hyps basic-ts corollary), not just the definitional one.  ACL2 does
@@ -12165,7 +12026,28 @@
 ; rule keeps the existing field positions so every consumer path is
 ; untouched; :ALL-TPS is purely additive.  Entry shape mirrors the gz
 ; linear/recognizer/rewrite collectors' (ld.lisp).
-(defun tp-all-entries (tps ens wrld acc)
+;
+; PER-ENTRY LEAVES (T1+2 sprint, fork round-trip 2 ask 1): the rune/hyps/
+; basic-ts/corollary quadruple alone does not let a consumer ADMIT the
+; strengthening — for that it needs the per-leaf verdicts ACL2 computes
+; for the fn's body IN THE RULE'S OWN HYPOTHETICAL CONTEXT.  The last two
+; fields supply exactly that, so each entry is
+;   (rune hyps basic-ts corollary term leaves).
+; TERM is the rule's own pattern (access type-prescription :term), e.g.
+; (BINARY-APPEND A B) — a stored rule's hyps and corollary speak the
+; RULE's variables, not the fn's formals, so the body is instantiated
+; through the formals->term-args substitution and LEAVES therefore speaks
+; the same variables as HYPS and COROLLARY.  LEAVES is the infra/tp-leaves
+; collector (type-set-b.lisp) run under the hypotheses' own type-alist
+; (infra/tp-leaves' tp-hyps-type-alist).  Worked case: BINARY-APPEND's
+; leaves are (3072, *ts-unknown*) unconditionally but (1024, 1152) under
+; TRUE-LISTP-APPEND's ((TRUE-LISTP B)) — both inside the rule's
+; basic-ts 1152.  NOTE the honest caveat: a stored rule proved by a real
+; theorem (rather than read off the body by type-set) need NOT have its
+; leaves inside its basic-ts; the field reports what ACL2's type-set says
+; in that context, and a consumer that cannot admit a rule from it must
+; fail closed rather than assume.
+(defun tp-all-entries (tps body formals ens wrld acc)
   (declare (xargs :guard t :mode :program))
   (cond
    ((endp tps) (reverse acc))
@@ -12181,14 +12063,48 @@
                         (convert-type-prescription-to-term tp ens wrld)
                         (declare (ignore ttree))
                         term)
-                    cor0)))
-        (tp-all-entries
-         (cdr tps) ens wrld
-         (cons (list (access type-prescription tp :rune)
-                     (access type-prescription tp :hyps)
-                     (access type-prescription tp :basic-ts)
-                     cor)
-               acc))))))
+                    cor0))
+             (tterm (access type-prescription tp :term))
+
+; A type-prescription is stored on the 'type-prescriptions property of the
+; ffn-symb of its :term, so TTERM is always a call of this fn and its
+; arity always matches the formals.  Fail closed if it ever is not, rather
+; than emit a substitution that silently means something else.
+
+             (tterm (if (and (nvariablep tterm)
+                             (not (fquotep tterm))
+                             (not (flambdap (ffn-symb tterm)))
+                             (equal (length (fargs tterm))
+                                    (length formals)))
+                        tterm
+                      (er hard 'tp-all-entries
+                          "type-prescription rule ~x0 has :term ~x1, which ~
+                           is not a call of arity ~x2 — cannot instantiate ~
+                           the body for its :ALL-TPS leaves"
+                          (access type-prescription tp :rune)
+                          tterm
+                          (length formals))))
+             (hyps (access type-prescription tp :hyps)))
+        (mv-let (hyp-type-alist vacuousp)
+
+; FORCE/CASE-SPLIT wrappers are proof-control markers, not content: the
+; hypothesis assumed is the wrapped term (translate.lisp's own
+; strip-force-and-case-split, the same normalization the tau and
+; rewrite-rule paths use).
+
+          (tp-hyps-type-alist (strip-force-and-case-split hyps)
+                              nil nil ens wrld)
+          (tp-all-entries
+           (cdr tps) body formals ens wrld
+           (cons (list (access type-prescription tp :rune)
+                       hyps
+                       (access type-prescription tp :basic-ts)
+                       cor
+                       tterm
+                       (tp-collect-if-leaves1
+                        (sublis-var (pairlis$ formals (fargs tterm)) body)
+                        nil hyp-type-alist vacuousp ens wrld))
+                 acc)))))))
 
 ; TRACE-LOG[emit/defun]: emit the normalized (:DEFUN name :FORMALS … :BODY …) event for
 ; EVERY admitted name — the shared structured-mode emitter called after
@@ -12310,10 +12226,12 @@
 ; basic type-set, IF-leaf entries, and every stored type-prescription) as proof
 ; data alongside its :DEFUN.  :LEAVES entries are
 ; (leaf-term type-set ruling-tests type-alist subterm-verdicts) — the
-; CONTEXT-REFINED shape (see infra/tp-leaves above); :ALL-TPS entries are
-; (rune hyps basic-ts corollary) for every stored rule, the conditional
-; strengthenings included (see infra/tp-all above), while the :COROLLARY /
-; :BASICTS fields keep carrying the DEFINITIONAL rule alone.
+; CONTEXT-REFINED shape (see infra/tp-leaves, type-set-b.lisp); :ALL-TPS
+; entries are (rune hyps basic-ts corollary term leaves) for every stored
+; rule, the conditional strengthenings included and each carrying the leaf
+; verdicts computed under its OWN hypotheses (see infra/tp-all above),
+; while the :COROLLARY / :BASICTS fields keep carrying the DEFINITIONAL
+; rule alone.
                     (tps (getpropc name 'type-prescriptions nil (w state)))
 ; An AUTO-computed type prescription (putprop-initial-type-prescriptions)
 ; stores :corollary *t* as a placeholder; reconstruct the real corollary
@@ -12334,7 +12252,9 @@
                            (if (and cor (not (equal cor *t*)))
                                (let* ((basic-ts (access type-prescription tp :basic-ts))
                                       (leaves (tp-collect-if-leaves body (ens state) (w state)))
-                                      (all-tps (tp-all-entries tps (ens state) (w state) nil)))
+                                      (all-tps (tp-all-entries tps body formals
+                                                               (ens state)
+                                                               (w state) nil)))
                                  (fms "(:TYPE-PRESCRIPTION ~x0 :COROLLARY ~x1 :BASICTS ~x2 :LEAVES ~x3 :ALL-TPS ~x4)~%"
                                       (list (cons #\0 name)
                                             (cons #\1 cor)
